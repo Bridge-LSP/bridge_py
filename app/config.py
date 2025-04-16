@@ -1,4 +1,4 @@
-MODEL_PATH = 'hand_landmarker.task'
+MODEL_PATH = 'models/hand_landmarker.task'
 
 CAMERA_WIDTH = 1280
 CAMERA_HEIGHT = 720

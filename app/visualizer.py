@@ -1,5 +1,5 @@
 import cv2
-from config import HAND_CONNECTIONS, LANDMARK_COLOR, CONNECTION_COLOR
+from app.config import HAND_CONNECTIONS, LANDMARK_COLOR, CONNECTION_COLOR
 
 def draw_landmarks(frame, landmarks, width, height):
     for lm in landmarks:

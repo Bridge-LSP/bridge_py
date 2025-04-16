@@ -37,3 +37,5 @@ pip freeze > requirements.txt
 ## ❌ No olvidar
 
 El entorno virtual (`myenv/`) no se sube al repositorio, ya está incluido en `.gitignore`.
+Si corres varias veces el sistema, el JSON 'landmarks_data.json' se irá llenando con más entradas (no sobreescribe).
+

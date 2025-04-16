@@ -1,8 +1,9 @@
 import cv2
 import mediapipe as mp
-from hand_tracker import create_hand_landmarker
-from visualizer import draw_landmarks, draw_connections, draw_handedness_label
-from config import CAMERA_WIDTH, CAMERA_HEIGHT
+from app.hand_tracker import create_hand_landmarker
+from app.visualizer import draw_landmarks, draw_connections, draw_handedness_label
+from app.config import CAMERA_WIDTH, CAMERA_HEIGHT
+from app.utils import save_landmark_to_json
 
 def main():
     hand_landmarker = create_hand_landmarker()
@@ -28,7 +29,8 @@ def main():
                 draw_handedness_label(frame, handedness, idx)
                 world_landmarks = results.hand_world_landmarks[idx]
                 for i, lm in enumerate(world_landmarks):
-                    print(f'Hand {idx + 1} ({handedness}) - Landmark {i}: x={lm.x:.4f}, y={lm.y:.4f}, z={lm.z:.4f}')
+                    print(f'Hand {idx + 1} ({handedness}) - Landmark {i}: x={lm.x:.4f}, y={lm.y:.4f}, z={lm.z:.4f}')                
+                save_landmark_to_json(handedness, world_landmarks, label="open_hand")
 
         cv2.imshow("Hand Tracking Live", frame)
         if cv2.waitKey(5) & 0xFF == ord("q"):

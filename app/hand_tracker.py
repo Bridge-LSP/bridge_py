@@ -2,7 +2,7 @@ import cv2
 import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
-from config import MODEL_PATH
+from app.config import MODEL_PATH
 
 def create_hand_landmarker():
     base_options = python.BaseOptions(model_asset_path=MODEL_PATH)
