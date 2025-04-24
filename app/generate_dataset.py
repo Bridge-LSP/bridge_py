@@ -8,15 +8,17 @@ from app.hand_tracker import create_hand_landmarker
 INPUT_FOLDER = 'data/raw_images'
 OUTPUT_JSON = 'data/landmarks_dataset.json'
 
-def generate_dataset_from_folder():
+def generate_dataset_from_folder(label_filter=None):
     hand_landmarker = create_hand_landmarker()
     mp_image_class = mp.Image
     dataset = []
 
     for label_folder in os.listdir(INPUT_FOLDER):
+        if label_filter and label_folder != label_filter:
+            continue
         label_path = os.path.join(INPUT_FOLDER, label_folder)
         if not os.path.isdir(label_path):
-            continue  # Ignorar si no es carpeta
+            continue
 
         for filename in tqdm(os.listdir(label_path), desc=f'Procesando {label_folder}'):
             if not filename.lower().endswith(('.jpg', '.jpeg', '.png')):
@@ -39,8 +41,15 @@ def generate_dataset_from_folder():
 
                     dataset.append({
                         "label": label_folder,
-                        "handedness": handedness,
-                        "landmarks": [{"x": lm.x, "y": lm.y, "z": lm.z} for lm in landmarks]
+                        "handtype": handedness.lower(),
+                        "landmarks": [
+                            {
+                                "id": i,
+                                "x": lm.x,
+                                "y": lm.y,
+                                "z": lm.z
+                            } for i, lm in enumerate(landmarks)
+                        ]
                     })
 
     with open(OUTPUT_JSON, 'w', encoding='utf-8') as f:
@@ -48,4 +57,5 @@ def generate_dataset_from_folder():
     print(f"\n✅ Dataset generado en {OUTPUT_JSON} con {len(dataset)} muestras.")
 
 if __name__ == "__main__":
-    generate_dataset_from_folder()
+    # deja None para procesar todo
+    generate_dataset_from_folder(label_filter='a')
