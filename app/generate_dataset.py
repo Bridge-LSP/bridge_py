@@ -5,7 +5,7 @@ import mediapipe as mp
 from tqdm import tqdm
 from app.hand_tracker import create_hand_landmarker
 
-INPUT_FOLDER = 'data/raw_images'
+INPUT_FOLDER = 'data/raw_images_test'
 OUTPUT_JSON = 'data/landmarks_dataset.json'
 
 def generate_dataset_from_folder(label_filter=None):
@@ -57,5 +57,5 @@ def generate_dataset_from_folder(label_filter=None):
     print(f"\n✅ Dataset generado en {OUTPUT_JSON} con {len(dataset)} muestras.")
 
 if __name__ == "__main__":
-    # deja None para procesar todo
-    generate_dataset_from_folder(label_filter='a')
+    # deja None para procesar todo, sino pones 'a'
+    generate_dataset_from_folder(label_filter=None)

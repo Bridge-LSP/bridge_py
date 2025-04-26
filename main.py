@@ -4,6 +4,17 @@ from app.hand_tracker import create_hand_landmarker
 from app.visualizer import draw_landmarks, draw_connections, draw_handedness_label
 from app.config import CAMERA_WIDTH, CAMERA_HEIGHT
 from app.utils import save_landmark_to_json
+import joblib
+import numpy as np
+
+MODEL_PATH = 'models/svm_model_u.pkl'
+svm_model = joblib.load(MODEL_PATH)
+
+def extract_features(landmarks):
+    features = []
+    for lm in landmarks:
+        features.extend([lm.x, lm.y, lm.z])
+    return np.array(features).reshape(1, -1)
 
 def main():
     hand_landmarker = create_hand_landmarker()
@@ -25,12 +36,19 @@ def main():
             for idx, landmarks in enumerate(results.hand_landmarks):
                 draw_landmarks(frame, landmarks, frame.shape[1], frame.shape[0])
                 draw_connections(frame, landmarks, frame.shape[1], frame.shape[0])
-                handedness = results.handedness[idx][0].category_name
+                handedness = results.handedness[idx][0].category_name.lower()
                 draw_handedness_label(frame, handedness, idx)
+
                 world_landmarks = results.hand_world_landmarks[idx]
+                features = extract_features(world_landmarks)
+                prediction = svm_model.predict(features)[0]
+
+                text = f'{prediction.upper()} ({handedness})'
+                cv2.putText(frame, text, (10, 60 + idx * 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
                 for i, lm in enumerate(world_landmarks):
-                    print(f'Hand {idx + 1} ({handedness}) - Landmark {i}: x={lm.x:.4f}, y={lm.y:.4f}, z={lm.z:.4f}')                
-                save_landmark_to_json(handedness, world_landmarks, label="open_hand")
+                    print(f'Hand {idx + 1} ({handedness}) - Landmark {i}: x={lm.x:.4f}, y={lm.y:.4f}, z={lm.z:.4f}')
 
         cv2.imshow("Hand Tracking Live", frame)
         if cv2.waitKey(5) & 0xFF == ord("q"):
