@@ -90,3 +90,11 @@ data/landmarks_data.json
 ```
 
 Este archivo crece con cada ejecución y puede usarse como base para entrenar modelos de clasificación de gestos más adelante.
+
+Para generar el dataset:
+- python -m app.generate_dataset
+
+Para generar el modelo con el dataset:
+- python -m app.model_trainer_svc
+- python -m app.model_trainer_forest
+- python -m app.model_trainer_knn

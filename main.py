@@ -17,7 +17,7 @@ def extract_features(landmarks):
     return np.array(features).reshape(1, -1)
 
 def main():
-    hand_landmarker = create_hand_landmarker()
+    hand_landmarker = create_hand_landmarker(running_mode="VIDEO")  # Cambiar a VIDEO
     cap = cv2.VideoCapture(0)
     cap.set(3, CAMERA_WIDTH)
     cap.set(4, CAMERA_HEIGHT)
@@ -46,9 +46,6 @@ def main():
                 text = f'{prediction.upper()} ({handedness})'
                 cv2.putText(frame, text, (10, 60 + idx * 30),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-
-                for i, lm in enumerate(world_landmarks):
-                    print(f'Hand {idx + 1} ({handedness}) - Landmark {i}: x={lm.x:.4f}, y={lm.y:.4f}, z={lm.z:.4f}')
 
         cv2.imshow("Hand Tracking Live", frame)
         if cv2.waitKey(5) & 0xFF == ord("q"):
