@@ -7,7 +7,7 @@ from app.utils import save_landmark_to_json
 import joblib
 import numpy as np
 
-MODEL_PATH = 'models/svm_model_u.pkl'
+MODEL_PATH = 'models/forest_model_u.pkl'
 svm_model = joblib.load(MODEL_PATH)
 
 def extract_features(landmarks):
