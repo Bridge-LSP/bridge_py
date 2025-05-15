@@ -6,6 +6,8 @@ import mediapipe as mp
 from app.hand_tracker import create_hand_landmarker
 from app.config import CAMERA_WIDTH, CAMERA_HEIGHT
 import joblib
+from fastapi.responses import FileResponse
+from app.utils_tts import generar_audio
 
 app = FastAPI(
     title="Bridge Landmark Detection API",
@@ -62,3 +64,7 @@ async def detect_hand(file: UploadFile = File(...)):
             })
 
     return JSONResponse(content=response_data)
+@app.get("/tts")
+def text_to_speech(texto: str, idioma: str = "es"):  
+    archivo = generar_audio(texto, idioma)
+    return FileResponse(archivo, media_type="audio/mpeg", filename="voz.mp3")
