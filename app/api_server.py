@@ -5,6 +5,7 @@ import numpy as np
 import mediapipe as mp
 from app.hand_tracker import create_hand_landmarker
 from app.config import CAMERA_WIDTH, CAMERA_HEIGHT
+import joblib
 
 app = FastAPI(
     title="Bridge Landmark Detection API",
@@ -20,15 +21,23 @@ app = FastAPI(
 )
 
 hand_landmarker = create_hand_landmarker()
+MODEL_PATH = 'models/forest_model_u.pkl'
+svm_model = joblib.load(MODEL_PATH)
+
+def extract_features(landmarks):
+    features = []
+    for lm in landmarks:
+        features.extend([lm.x, lm.y, lm.z])
+    return np.array(features).reshape(1, -1)
 
 @app.post(
     "/detect",
     summary="Detect hand landmarks",
     description=(
         "Receives an image in multipart/form-data format, detects the hands present, "
-        "and returns the 3D coordinates of the landmarks along with the hand classification (left or right)."
+        "and returns the prediction (letter/number) and handedness (left/right)."
     ),
-    response_description="A JSON with the detected landmarks and hand classification.",
+    response_description="A JSON with the prediction and hand classification.",
 )
 async def detect_hand(file: UploadFile = File(...)):  
     contents = await file.read()
@@ -43,13 +52,13 @@ async def detect_hand(file: UploadFile = File(...)):
 
     if results.hand_landmarks:
         for idx, landmarks in enumerate(results.hand_world_landmarks):
-            handedness = results.handedness[idx][0].category_name
-            landmark_coords = [{"x": lm.x, "y": lm.y, "z": lm.z} for lm in landmarks]
+            handedness = results.handedness[idx][0].category_name.lower()
+            features = extract_features(landmarks)
+            prediction = svm_model.predict(features)[0]
 
             response_data.append({
-                "handedness": handedness,
-                "landmarks": landmark_coords,
-                "label": "open_hand"
+                "prediction": prediction,
+                "handedness": handedness
             })
 
     return JSONResponse(content=response_data)

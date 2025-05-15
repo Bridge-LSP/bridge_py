@@ -95,6 +95,6 @@ Para generar el dataset:
 - python -m app.generate_dataset
 
 Para generar el modelo con el dataset:
-- python -m app.model_trainer_svc
-- python -m app.model_trainer_forest
-- python -m app.model_trainer_knn
+- python -m app.model_trainers.model_trainer_svc
+- python -m app.model_trainers.model_trainer_forest
+- python -m app.model_trainers.model_trainer_knn

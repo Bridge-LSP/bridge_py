@@ -17,7 +17,7 @@ def extract_features(landmarks):
     return np.array(features).reshape(1, -1)
 
 def main():
-    hand_landmarker = create_hand_landmarker(running_mode="VIDEO")  # Cambiar a VIDEO
+    hand_landmarker = create_hand_landmarker(running_mode="VIDEO")
     cap = cv2.VideoCapture(0)
     cap.set(3, CAMERA_WIDTH)
     cap.set(4, CAMERA_HEIGHT)
