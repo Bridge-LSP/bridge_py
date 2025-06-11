@@ -14,8 +14,7 @@ MODEL_PATH_LSTM = 'models/lstm_model.h5'
 SEQUENCE_LENGTH = 30
 FEATURES_PER_FRAME = 63
 
-# Mapa de etiquetas del modelo LSTM (ajusta según tu entrenamiento)
-LSTM_LABEL_MAP = {0: 'j', 1: 'll', 2: 'rr', 3: 'z', 4: 'ñ'}
+LSTM_LABEL_MAP = {0: 'j', 1: 'll', 2: 'rr', 3: 'z', 4: 'ny'}
 
 svm_model = joblib.load(MODEL_PATH_STATIC)
 lstm_model = load_model(MODEL_PATH_LSTM)
@@ -75,7 +74,7 @@ def main():
                     text = f'{static_pred.upper()} (estatica)'
 
                 cv2.putText(frame, text, (10, 60 + idx * 30),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)  # Cambia a negro
 
         cv2.imshow("Hand Tracking Live", frame)
         if cv2.waitKey(5) & 0xFF == ord("q"):

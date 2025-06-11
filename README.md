@@ -48,10 +48,9 @@ Y la interfaz de prueba automática de la API (Swagger UI) estará disponible en
 http://127.0.0.1:8000/docs
 ```
 
-Para generar el dataset:
+Para generar el dataset estático:
 - python -m app.generate_dataset
 
 Para generar el modelo con el dataset:
-- python -m app.model_trainers.model_trainer_svc
-- python -m app.model_trainers.model_trainer_forest
-- python -m app.model_trainers.model_trainer_knn
+- python -m model_trainers.model_trainer_forest
+- python -m model_trainers.model_trainer_lstm
