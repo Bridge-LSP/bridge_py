@@ -2,7 +2,7 @@ import json
 import os
 from datetime import datetime
 
-def save_landmark_to_json(handedness, landmarks, label=None, output_path='dataset/landmarks_static.json'):   
+def save_landmark_to_json(handedness, landmarks, label=None, output_path='dataset_bridge/landmarks_static.json'):   
     data_point = {
         "timestamp": datetime.utcnow().isoformat(),
         "handedness": handedness,

@@ -7,7 +7,7 @@ from tensorflow.keras.utils import to_categorical
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 
-SEQUENCE_DIR = 'dataset/landmarks_dynamic'
+SEQUENCE_DIR = 'dataset_bridge/landmarks_dynamic'
 MODEL_PATH = 'models/lstm_model.h5'
 SEQUENCE_LENGTH = 30
 FEATURES_PER_FRAME = 63

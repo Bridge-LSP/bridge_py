@@ -5,7 +5,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
 
-DATASET_PATH = 'dataset/landmarks_static.json'
+DATASET_PATH = 'dataset_bridge/landmarks_static.json'
 MODEL_OUTPUT_PATH = 'models/forest_model_u.pkl'
 
 def load_dataset():

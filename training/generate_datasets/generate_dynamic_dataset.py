@@ -1,12 +1,12 @@
+import os
 import cv2
 import mediapipe as mp
 import numpy as np
-from tensorflow.keras.models import load_model
+import json
 
-SEQUENCE_LENGTH = 30
-FEATURES_PER_FRAME = 63
-MODEL_PATH = 'models/lstm_model.h5'
-VIDEO_PATH = 'dataset_multimedia/dataset_dynamic/j/J LSP1.mp4'
+RAW_VIDEO_DIR = 'dataset_multimedia/dataset_dynamic'
+SEQUENCE_DIR = 'dataset_bridge/landmarks_dynamic'
+SEQUENCE_LENGTH = 30 
 
 mp_hands = mp.solutions.hands
 
@@ -29,13 +29,21 @@ def extract_landmark_sequence(video_path, sequence_length=SEQUENCE_LENGTH):
                 break
     cap.release()
     while len(sequence) < sequence_length:
-        sequence.append([0.0]*FEATURES_PER_FRAME)
-    return np.array(sequence)
+        sequence.append([0.0]*63) 
+    return sequence
+
+def process_all_videos():
+    os.makedirs(SEQUENCE_DIR, exist_ok=True)
+    for root, dirs, files in os.walk(RAW_VIDEO_DIR):
+        for fname in files:
+            if fname.endswith('.mp4'):
+                label = os.path.basename(root).lower() 
+                video_path = os.path.join(root, fname)
+                sequence = extract_landmark_sequence(video_path)
+                out_path = os.path.join(SEQUENCE_DIR, f"{label}_{fname}.json")
+                with open(out_path, 'w') as f:
+                    json.dump({'label': label, 'sequence': sequence}, f)
+                print(f"Procesado {fname} → {out_path}")
 
 if __name__ == "__main__":
-    model = load_model(MODEL_PATH)
-    seq = extract_landmark_sequence(VIDEO_PATH)
-    pred = model.predict(np.expand_dims(seq, axis=0))
-    pred_label = np.argmax(pred)
-    print("Predicción (índice):", pred_label)
-    print("Probabilidades:", pred)
+    process_all_videos()
