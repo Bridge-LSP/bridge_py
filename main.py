@@ -1,10 +1,10 @@
 import cv2
 import mediapipe as mp
-from app.hand_tracker import create_hand_landmarker
-from app.visualizer import draw_landmarks, draw_connections, draw_handedness_label
-from app.config import CAMERA_WIDTH, CAMERA_HEIGHT
-from app.utils import save_landmark_to_json
-from app.autocorrector import AutoCorrector
+from bridge_engine.hand_tracker import create_hand_landmarker
+from utils.hand_landmarks_visualizer import draw_landmarks, draw_connections, draw_handedness_label
+from utils.hand_tracking_config import CAMERA_WIDTH, CAMERA_HEIGHT
+from utils.bridge_utils import save_landmark_to_json
+from bridge_engine.bert_autocorrector import AutoCorrector
 import joblib
 import numpy as np
 import time
