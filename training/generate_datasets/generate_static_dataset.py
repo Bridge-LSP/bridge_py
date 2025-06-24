@@ -3,9 +3,9 @@ import cv2
 import json
 import mediapipe as mp
 from tqdm import tqdm
-from bridge_engine.hand_tracker import create_hand_landmarker
+from engine_bridge.hand_tracker import create_hand_landmarker
 
-INPUT_FOLDER = 'dataset_multimedia/dataset_static'
+INPUT_FOLDER = 'training/dataset_multimedia/dataset_static'
 OUTPUT_JSON = 'dataset_bridge/landmarks_static.json'
 
 def generate_dataset_from_folder(label_filter=None):

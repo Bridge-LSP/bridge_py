@@ -6,7 +6,7 @@ from tensorflow.keras.models import load_model
 SEQUENCE_LENGTH = 30
 FEATURES_PER_FRAME = 63
 MODEL_PATH = 'models/lstm_model.h5'
-VIDEO_PATH = 'dataset_multimedia/dataset_dynamic/j/J LSP1.mp4'
+VIDEO_PATH = 'training/dataset_multimedia/dataset_dynamic/j/J LSP1.mp4'
 
 mp_hands = mp.solutions.hands
 

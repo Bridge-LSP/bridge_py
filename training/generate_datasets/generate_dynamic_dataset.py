@@ -4,7 +4,7 @@ import mediapipe as mp
 import numpy as np
 import json
 
-RAW_VIDEO_DIR = 'dataset_multimedia/dataset_dynamic'
+RAW_VIDEO_DIR = 'training/dataset_multimedia/dataset_dynamic'
 SEQUENCE_DIR = 'dataset_bridge/landmarks_dynamic'
 SEQUENCE_LENGTH = 30 
 
@@ -40,7 +40,11 @@ def process_all_videos():
                 label = os.path.basename(root).lower() 
                 video_path = os.path.join(root, fname)
                 sequence = extract_landmark_sequence(video_path)
-                out_path = os.path.join(SEQUENCE_DIR, f"{label}_{fname}.json")
+                
+                label_dir = os.path.join(SEQUENCE_DIR, label)
+                os.makedirs(label_dir, exist_ok=True)
+                
+                out_path = os.path.join(label_dir, f"{fname}.json")
                 with open(out_path, 'w') as f:
                     json.dump({'label': label, 'sequence': sequence}, f)
                 print(f"Procesado {fname} → {out_path}")

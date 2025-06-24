@@ -26,6 +26,9 @@ pip install -r requirements.txt
 pip freeze > requirements.txt
 ```
 
+
+
+
 ## 🚀 Ejecutar backend local con FastAPI
 
 Este proyecto expone un backend que permite recibir imágenes y procesarlas con MediaPipe para retornar los landmarks de las manos detectadas.
@@ -33,7 +36,7 @@ Este proyecto expone un backend que permite recibir imágenes y procesarlas con 
 ### 📌 Comando para correr el backend local:
 
 ```bash
-uvicorn app.api_server:app --reload
+uvicorn api.api_main:app --reload
 ```
 
 Esto abrirá el servidor en:
@@ -50,18 +53,19 @@ http://127.0.0.1:8000/docs
 
 
 
-### 📌 Generar Dataset Éstatico
+## 🚀 Playground de Optimización en Bridge
+
+
+### 📌 Generar Dataset Éstatico (Imagenes) y Dinámico (Videos)
 ```bash
-python -m generate_datasets.generate_static_dataset
+python -m training.generate_datasets.generate_static_dataset
+python -m training.generate_datasets.generate_dynamic_dataset
+
 ```
 
-### 📌 Generar Dataset Dinámico
+### 📌 Generar Modelo Forest/LSTM con nuestro Dataset Bridge Estático/Dinámico
 ```bash
-python -m generate_datasets.generate_dynamic_dataset
+python -m training.trainers.model_trainer_forest
+python -m training.trainers.model_trainer_lstm
 ```
 
-
-
-### 📌 Generar Modelo Forest y LSTM con el Dataset
-- python -m trainers.model_trainer_forest
-- python -m trainers.model_trainer_lstm

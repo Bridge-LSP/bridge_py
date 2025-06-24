@@ -84,22 +84,19 @@ class AutoCorrector:
         print(f"🧠 Aprendido: '{wrong_word}' -> '{correct_word}'")
     
     def get_learned_suggestion(self, word):
-        """Obtener sugerencia basada en aprendizajes previos"""
         word_key = word.lower()
         
-        # Buscar corrección exacta aprendida
         if word_key in self.learned_corrections:
             learned = self.learned_corrections[word_key]
             if learned["count"] > 0:
                 return learned["word"]
         
-        # Buscar correcciones similares
         best_match = None
         min_distance = float('inf')
         
         for learned_wrong, learned_data in self.learned_corrections.items():
             distance = Levenshtein.distance(word_key, learned_wrong)
-            if distance < min_distance and distance <= len(word) // 3:  # Máximo 1/3 de diferencias
+            if distance < min_distance and distance <= len(word) // 3:
                 min_distance = distance
                 best_match = learned_data["word"]
         
