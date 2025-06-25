@@ -68,4 +68,3 @@ python -m training.generate_datasets.generate_dynamic_dataset
 python -m training.trainers.model_trainer_forest
 python -m training.trainers.model_trainer_lstm
 ```
-

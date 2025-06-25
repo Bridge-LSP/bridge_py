@@ -1,8 +1,6 @@
 from transformers import pipeline, AutoTokenizer, AutoModelForMaskedLM
 from spellchecker import SpellChecker
-import re
 import Levenshtein
-import threading
 import queue
 import time
 import json
@@ -70,11 +68,6 @@ class AutoCorrector:
         self.correction_feedback = defaultdict(lambda: {"positive": 0, "negative": 0, "error_count": 0})
         self.load_correction_feedback()
         
-        # ✅ NUEVO: Análisis gramatical con spaCy
-        self.pos_analysis_enabled = False
-        self.nlp_pos = None
-        self._init_pos_tagger()
-        
         # ✅ NUEVO: Tracking de correcciones fallidas
         self.failed_corrections = defaultdict(int)
         self.correction_blacklist = set()  # Correcciones que han fallado mucho
@@ -82,41 +75,6 @@ class AutoCorrector:
         # ✅ NUEVO: Inicializar atributos de sesión
         self.session_start_time = None
         self.corrections_made_in_session = 0
-
-    def _init_pos_tagger(self):
-        """✅ NUEVO: Inicializar POS tagger para análisis gramatical"""
-        try:
-            # ✅ ARREGLO: Hacer importación completamente opcional
-            try:
-                import spacy
-            except ImportError:
-                print("⚠️ spaCy no instalado. Análisis gramatical deshabilitado")
-                print("   💡 Para habilitarlo: pip install spacy")
-                print("   💡 Luego instala modelo: python -m spacy download es_core_news_sm")
-                return
-            
-            # Intentar cargar modelo en español
-            try:
-                self.nlp_pos = spacy.load("es_core_news_sm")
-                self.pos_analysis_enabled = True
-                print("✅ Análisis gramatical habilitado con spaCy (español)")
-            except OSError:
-                try:
-                    # Fallback a modelo en inglés
-                    self.nlp_pos = spacy.load("en_core_web_sm")
-                    self.pos_analysis_enabled = True
-                    print("⚠️ Usando modelo en inglés para análisis gramatical")
-                    print("   💡 Para español: python -m spacy download es_core_news_sm")
-                except OSError:
-                    print("⚠️ spaCy instalado pero sin modelos disponibles")
-                    print("   💡 Instala un modelo: python -m spacy download es_core_news_sm")
-                    print("   💡 O modelo en inglés: python -m spacy download en_core_web_sm")
-                    self.pos_analysis_enabled = False
-                    self.nlp_pos = None
-        except Exception as e:
-            print(f"⚠️ Error inicializando análisis gramatical: {e}")
-            self.pos_analysis_enabled = False
-            self.nlp_pos = None
 
     def load_learned_corrections(self):
         try:
@@ -571,53 +529,6 @@ class AutoCorrector:
         except Exception as e:
             print(f"⚠️ Error guardando feedback de correcciones: {e}")
 
-    def analyze_grammatical_context(self, sentence: str) -> dict:
-        """✅ MEJORADO: Análisis gramatical con mejor manejo de errores"""
-        if not self.pos_analysis_enabled or not self.nlp_pos or not sentence:
-            return {}
-        
-        try:
-            doc = self.nlp_pos(sentence)
-            analysis = {
-                "pos_tags": [],
-                "grammar_patterns": {},
-                "word_types": {"NOUN": [], "VERB": [], "ADJ": [], "ADV": [], "OTHER": []}
-            }
-            
-            for token in doc:
-                pos_info = {
-                    "text": token.text,
-                    "pos": token.pos_,
-                    "tag": token.tag_,
-                    "dep": token.dep_,
-                    "lemma": token.lemma_
-                }
-                analysis["pos_tags"].append(pos_info)
-                
-                # Agrupar por tipos gramaticales
-                if token.pos_ in ["NOUN", "PROPN"]:
-                    analysis["word_types"]["NOUN"].append(token.text.lower())
-                elif token.pos_ == "VERB":
-                    analysis["word_types"]["VERB"].append(token.text.lower())
-                elif token.pos_ == "ADJ":
-                    analysis["word_types"]["ADJ"].append(token.text.lower())
-                elif token.pos_ == "ADV":
-                    analysis["word_types"]["ADV"].append(token.text.lower())
-                else:
-                    analysis["word_types"]["OTHER"].append(token.text.lower())
-            
-            # Identificar patrones gramaticales comunes
-            pos_sequence = " ".join([token.pos_ for token in doc])
-            analysis["grammar_patterns"]["sequence"] = pos_sequence
-            
-            return analysis
-            
-        except Exception as e:
-            print(f"⚠️ Error en análisis gramatical: {e}")
-            # ✅ NUEVO: Desactivar si hay errores recurrentes
-            self.pos_analysis_enabled = False
-            return {}
-
     def evaluate_corrections_with_bert_weighted(self, word, corrections, context):
         """✅ MEJORADO: Evaluación de BERT combinada con pesos de éxito"""
         try:
@@ -845,7 +756,7 @@ class AutoCorrector:
         }
 
     def get_bert_training_suggestions(self) -> dict:
-        """✅ MEJORADO: Análisis gramatical opcional y mejor manejo"""
+        """✅ SIMPLIFICADO: Sin análisis gramatical"""
         if not self.successful_sentences:
             return {"message": "No hay suficientes datos para sugerencias"}
         
@@ -856,22 +767,10 @@ class AutoCorrector:
         if len(high_quality_sentences) < 5:
             return {"message": "Necesitas al menos 5 frases de alta calidad confirmadas"}
         
-        # ✅ MEJORADO: Análisis gramatical completamente opcional
         training_data = []
-        grammatical_analysis = {
-            "error_patterns": defaultdict(list),
-            "pos_corrections": {"NOUN": [], "VERB": [], "ADJ": [], "ADV": [], "OTHER": []},
-            "common_mistakes": defaultdict(int),
-            "context_patterns": defaultdict(list),
-            "analysis_enabled": self.pos_analysis_enabled
-        }
+        common_mistakes = defaultdict(int)
         
         for sentence in high_quality_sentences:
-            # ✅ MEJORADO: Análisis gramatical solo si está disponible
-            grammar_info = {}
-            if self.pos_analysis_enabled and self.nlp_pos:
-                grammar_info = self.analyze_grammatical_context(sentence["corrected_sentence"])
-            
             for detail in sentence["words_details"]:
                 if detail["was_corrected"]:
                     original_word = detail["original"]
@@ -893,68 +792,33 @@ class AutoCorrector:
                     
                     training_data.append(training_example)
                     
-                    # ✅ MEJORADO: Análisis gramatical solo si está disponible
-                    if self.pos_analysis_enabled and grammar_info and grammar_info.get("pos_tags"):
-                        pos_tags = grammar_info.get("pos_tags", [])
-                        if detail["position"] < len(pos_tags):
-                            word_pos = pos_tags[detail["position"]]["pos"]
-                            
-                            # Clasificar por categoría gramatical
-                            if word_pos in ["NOUN", "PROPN"]:
-                                grammatical_analysis["pos_corrections"]["NOUN"].append(training_example)
-                            elif word_pos == "VERB":
-                                grammatical_analysis["pos_corrections"]["VERB"].append(training_example)
-                            elif word_pos == "ADJ":
-                                grammatical_analysis["pos_corrections"]["ADJ"].append(training_example)
-                            elif word_pos == "ADV":
-                                grammatical_analysis["pos_corrections"]["ADV"].append(training_example)
-                            else:
-                                grammatical_analysis["pos_corrections"]["OTHER"].append(training_example)
-                        
-                        # Patrones de error comunes
-                        error_pattern = f"{word_pos}:{original_word}->{corrected_word}"
-                        grammatical_analysis["error_patterns"][word_pos].append({
-                            "original": original_word,
-                            "corrected": corrected_word,
-                            "frequency": 1
-                        })
-                    
-                    # Conteo de errores comunes (siempre disponible)
+                    # Conteo de errores comunes
                     mistake_key = f"{original_word}->{corrected_word}"
-                    grammatical_analysis["common_mistakes"][mistake_key] += 1
+                    common_mistakes[mistake_key] += 1
         
         # Análisis de patrones más frecuentes
-        most_common_mistakes = dict(Counter(grammatical_analysis["common_mistakes"]).most_common(10))
+        most_common_mistakes = dict(Counter(common_mistakes).most_common(10))
         
         # Recomendaciones básicas
         recommendations = [
             "Fine-tune BERT con estos ejemplos contextuales",
             "Usar weighted sampling basado en user_satisfaction",
-            "Aplicar data augmentation en ejemplos de alta calidad"
+            "Aplicar data augmentation en ejemplos de alta calidad",
+            "Entrenar con ejemplos de correcciones más frecuentes"
         ]
-        
-        # ✅ MEJORADO: Recomendaciones específicas solo si análisis gramatical está disponible
-        if self.pos_analysis_enabled:
-            for pos, corrections in grammatical_analysis["pos_corrections"].items():
-                if len(corrections) >= 3:
-                    recommendations.append(f"Entrenar específicamente para errores en {pos} ({len(corrections)} ejemplos)")
-        else:
-            recommendations.append("💡 Instala spaCy para análisis gramatical avanzado: pip install spacy")
         
         return {
             "training_examples": len(training_data),
             "high_quality_sentences": len(high_quality_sentences),
             "training_data": training_data[:50],
-            "grammatical_analysis": {
-                "analysis_enabled": self.pos_analysis_enabled,
-                "pos_distribution": {k: len(v) for k, v in grammatical_analysis["pos_corrections"].items()},
+            "analysis": {
                 "most_common_mistakes": most_common_mistakes,
-                "error_patterns_by_pos": {k: len(v) for k, v in grammatical_analysis["error_patterns"].items()}
+                "mistake_types": list(set(ex["correction_type"] for ex in training_data))
             },
             "recommendations": recommendations,
             "cleanup_needed": len(self.correction_blacklist) > 0
         }
-
+    
     def _classify_correction_type(self, original: str, corrected: str) -> str:
         """✅ NUEVO: Clasificar tipo de corrección"""
         if not original or not corrected:
