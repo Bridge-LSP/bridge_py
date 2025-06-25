@@ -2,13 +2,13 @@ import time
 from collections import defaultdict, Counter
 import Levenshtein
 
+# === CLASE ANALÍTICA DEL AUTOCORRECTOR ===
 class AutoCorrectorAnalytics:
     def __init__(self, autocorrector):
         self.autocorrector = autocorrector
         self.storage = autocorrector.storage
 
-    # ---------------------- CREACIÓN DE REGISTROS ----------------------
-
+    # === CREACIÓN DE REGISTROS DE FRASES ===
     def create_sentence_record(self, words_feedback, sentence_words, session_start_time, corrections_made):
         if not words_feedback:
             return None
@@ -48,8 +48,7 @@ class AutoCorrectorAnalytics:
             for i, info in enumerate(feedback)
         ]
 
-    # ---------------------- MÉTRICAS DE EVALUACIÓN ----------------------
-
+    # === MÉTRICAS DE EVALUACIÓN DE CALIDAD ===
     def calculate_levenshtein_ratio(self, original: str, corrected: str) -> float:
         orig_words = original.lower().split()
         corr_words = corrected.lower().split()
@@ -62,7 +61,6 @@ class AutoCorrectorAnalytics:
              else 1.0)
             for i in range(total)
         )
-
         return round(score / total, 3)
 
     def evaluate_semantic_coherence(self, sentence: str) -> float:
@@ -88,8 +86,7 @@ class AutoCorrectorAnalytics:
 
         return round(min(1.0, total_score / evaluations), 3) if evaluations else 0.5
 
-    # ---------------------- ESTADÍSTICAS DE APRENDIZAJE ----------------------
-
+    # === ESTADÍSTICAS DE APRENDIZAJE Y SALUD ===
     def get_learning_stats(self) -> dict:
         learned = self.storage.learned_corrections
         return {
@@ -120,10 +117,12 @@ class AutoCorrectorAnalytics:
             "recommendations": self._get_health_recommendations(rate, len(self.storage.correction_blacklist), len(self.storage.learned_corrections))
         }
 
-    # ---------------------- SUGERENCIAS PARA ENTRENAMIENTO ----------------------
-
+    # === SUGERENCIAS PARA ENTRENAMIENTO CON BERT ===
     def get_bert_training_suggestions(self) -> dict:
-        sentences = [s for s in self.storage.successful_sentences if s.get("context_quality") in ["excellent", "good"] and s.get("user_confirmed")]
+        sentences = [
+            s for s in self.storage.successful_sentences
+            if s.get("context_quality") in ["excellent", "good"] and s.get("user_confirmed")
+        ]
         if len(sentences) < 5:
             return {"message": "Necesitas al menos 5 frases de alta calidad"}
 
@@ -151,12 +150,10 @@ class AutoCorrectorAnalytics:
             "most_common_mistakes": dict(Counter(mistakes).most_common(10))
         }
 
-    # ---------------------- CLASIFICADORES INTERNOS ----------------------
-
+    # === CLASIFICADORES INTERNOS Y RECOMENDACIONES ===
     def _calculate_difficulty_score(self, original, corrected, coherence):
         wc = len(original.split())
         ratio = self.calculate_levenshtein_ratio(original, corrected)
-
         score = (0.1 if wc <= 3 else 0.3 if wc <= 6 else 0.5) + (ratio * 0.4) + ((1 - coherence) * 0.5)
         return "easy" if score <= 0.3 else "medium" if score <= 0.6 else "hard" if score <= 0.8 else "very_hard"
 

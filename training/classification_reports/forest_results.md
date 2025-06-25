@@ -1,5 +1,5 @@
 V1
-�📈 Reporte de clasificación:
+📈 Reporte de clasificación:
               precision    recall  f1-score   support
 
            1       1.00      0.75      0.86        16
@@ -41,4 +41,4 @@ V1
 weighted avg       0.97      0.97      0.97      1519
 
 
-✅ Modelo guardado en models/forest_model_u.pkl
+💾 Modelo guardado en: models/forest_model_u.pkl

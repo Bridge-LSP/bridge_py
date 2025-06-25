@@ -3,11 +3,12 @@ import os
 import time
 from collections import defaultdict
 
+# === CLASE DE ALMACENAMIENTO DEL AUTOCORRECTOR ===
 class AutoCorrectorStorage:
     def __init__(self, learning_file):
         self.learning_file = learning_file
 
-        # Archivos
+        # Archivos auxiliares
         self.successful_sentences_file = "dataset_bridge/successful_sentences.json"
         self.weighted_corrections_file = "dataset_bridge/weighted_corrections.json"
         self.correction_feedback_file = "dataset_bridge/correction_feedback.json"
@@ -23,8 +24,7 @@ class AutoCorrectorStorage:
 
         self._load_all()
 
-    # ----------------- CARGA Y GUARDADO -----------------
-
+    # === CARGA Y GUARDADO DE ARCHIVOS JSON ===
     def _load_all(self):
         self._load_json_file(self.learning_file, self._parse_learned_corrections)
         self._load_json_file(self.successful_sentences_file, self._parse_successful_sentences)
@@ -44,7 +44,8 @@ class AutoCorrectorStorage:
         for word, info in data.get('corrections', {}).items():
             if isinstance(info, dict) and "corrections" in info:
                 self.learned_corrections[word] = info
-            else:  # migración de formato antiguo
+            else:
+                # Formato anterior
                 self.learned_corrections[word] = {
                     "corrections": [{
                         "correct_word": info.get("word", ""),
@@ -75,6 +76,7 @@ class AutoCorrectorStorage:
         except Exception as e:
             print(f"⚠️ Error al guardar {path}: {e}")
 
+    # === GUARDADO DE ESTRUCTURAS INDIVIDUALES ===
     def save_learned_corrections(self):
         self._save_json(self.learning_file, {
             'corrections': dict(self.learned_corrections),
@@ -102,8 +104,7 @@ class AutoCorrectorStorage:
             'last_updated': time.time()
         })
 
-    # ----------------- APRENDIZAJE -----------------
-
+    # === APRENDIZAJE DE CORRECCIONES ===
     def learn_correction(self, wrong_word, correct_word, context=None, word_position=-1):
         if not wrong_word or not correct_word or wrong_word == correct_word:
             return
@@ -141,8 +142,7 @@ class AutoCorrectorStorage:
             return ""
         return " ".join(context[-3:] if len(context) >= 3 else context).lower()
 
-    # ----------------- SUGERENCIAS -----------------
-
+    # === SUGERENCIAS BASADAS EN CONTEXTO Y FEEDBACK ===
     def get_learned_suggestion_weighted(self, word, context=None):
         word_key = word.lower()
         corrections = self.learned_corrections.get(word_key, {}).get("corrections", [])
@@ -177,8 +177,7 @@ class AutoCorrectorStorage:
 
         return max(valid, key=lambda x: x["weighted_score"])["correct_word"]
 
-    # ----------------- CONFIRMACIÓN -----------------
-
+    # === CONFIRMACIÓN DE CALIDAD DE FRASES ===
     def set_pending_confirmation(self, sentence_record):
         self.pending_sentence_confirmation = sentence_record
 
@@ -217,8 +216,7 @@ class AutoCorrectorStorage:
         self.pending_sentence_confirmation = None
         return True
 
-    # ----------------- LIMPIEZA -----------------
-
+    # === LIMPIEZA DE CORRECCIONES INEFICACES ===
     def clean_ineffective_corrections(self):
         cleaned = 0
         initial_count = len(self.learned_corrections)

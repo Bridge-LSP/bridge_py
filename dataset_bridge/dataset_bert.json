@@ -38,12 +38,24 @@
         }
       ],
       "count": 1
+    },
+    "popno": {
+      "corrections": [
+        {
+          "correct_word": "mono",
+          "count": 1,
+          "context": "cola de poíno",
+          "position_in_sentence": 2
+        }
+      ],
+      "count": 1
     }
   },
   "patterns": {
     "csoy->soy[orig:hola csoy][corr:hola soy]": 1,
     "gsoy->soy[orig:hola gsoy ces rde gogle][corr:hola soy ceo de tole]": 1,
-    "gogle->google[orig:hola gsoy ces rde gogle][corr:hola soy ceo de google]": 1
+    "gogle->google[orig:hola gsoy ces rde gogle][corr:hola soy ceo de google]": 1,
+    "popno->mono[ctx:cola de poíno]": 1
   },
-  "last_updated": 1750830434.5449593
+  "last_updated": 1750870163.7219732
 }
