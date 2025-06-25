@@ -9,11 +9,22 @@ from engine_bridge.autocorrector.autocorrector_core import AutoCorrector
 from utils.hand_landmarks_visualizer import draw_landmarks, draw_connections
 from utils.hand_tracking_config import CAMERA_WIDTH, CAMERA_HEIGHT
 from utils.bridge_utils import save_landmark_to_json
+from tensorflow.keras.models import load_model
+from collections import deque
 
 # === MODELO Y OBJETOS GLOBALES ===
+MODEL_MODE = "rf"  # Opciones: "lstm", "rf", "both"
+
 MODEL_PATH = 'models/forest_model_u.pkl'
 svm_model = joblib.load(MODEL_PATH)
 autocorrector = AutoCorrector()
+
+LSTM_PATH = 'models/lstm_model.h5'
+SEQUENCE_LENGTH = 30
+FEATURES_PER_FRAME = 63
+LABEL_MAP_LSTM = {0: 'j', 1: 'll', 2: 'rr', 3: 'z', 4: 'ny'} 
+lstm_model = load_model(LSTM_PATH)
+lstm_buffer = deque(maxlen=SEQUENCE_LENGTH)
 
 # === ESTADOS Y VARIABLES DE CONTROL ===
 last_prediction = None
@@ -168,10 +179,39 @@ def main():
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         timestamp = int(cap.get(cv2.CAP_PROP_POS_MSEC))
         results = hand_landmarker.detect_for_video(mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb), timestamp)
+
         current_time = time.time()
         detected = False
+        prediction_type = None
 
-        if results.hand_landmarks and not feedback_mode:
+        # === Recolección para LSTM ===
+        if results.hand_world_landmarks:
+            for landmarks in results.hand_world_landmarks:
+                frame_features = [coord for point in landmarks for coord in (point.x, point.y, point.z)]
+                lstm_buffer.append(frame_features)
+
+        # === PREDICCIÓN CON LSTM ===
+        if MODEL_MODE in ("lstm", "both") and len(lstm_buffer) == SEQUENCE_LENGTH and not feedback_mode:
+            seq = np.array(lstm_buffer)
+            pred = lstm_model.predict(np.expand_dims(seq, axis=0), verbose=0)
+            pred_label = np.argmax(pred)
+            prob = float(pred[0][pred_label])
+
+            if prob > 0.85:
+                letra_lstm = LABEL_MAP_LSTM.get(pred_label, None)
+                if letra_lstm and letra_lstm != last_prediction and (current_time - last_time) > COOLDOWN_TIME:
+                    letra_actual = letra_lstm.upper()
+                    autocorrector.add_letter(letra_actual.lower())
+                    last_prediction = letra_lstm
+                    last_time = current_time
+                    last_letter_time = current_time
+                    word_finalized = False
+                    detected = True
+                    prediction_type = "lstm"
+                    print(f"🔁 LSTM Letra: {letra_actual}")
+
+        # === PREDICCIÓN CON RANDOM FOREST ===
+        if MODEL_MODE in ("rf", "both") and results.hand_landmarks and not feedback_mode and not detected:
             for idx, lm in enumerate(results.hand_landmarks):
                 draw_landmarks(frame, lm, frame.shape[1], frame.shape[0])
                 draw_connections(frame, lm, frame.shape[1], frame.shape[0])

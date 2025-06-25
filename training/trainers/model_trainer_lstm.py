@@ -16,23 +16,35 @@ FEATURES_PER_FRAME = 63
 # === FUNCIÓN: Cargar secuencias y etiquetas ===
 def load_sequences():
     """
-    Carga los archivos .json con secuencias de landmarks.
-    Asigna un índice numérico a cada etiqueta de clase.
+    Recorre subdirectorios de SEQUENCE_DIR y carga secuencias de landmarks.
+    Etiqueta cada clase con un entero y devuelve los datos y el label_map.
     """
     X, y = [], []
     label_map = {}
     label_count = 0
 
-    for fname in os.listdir(SEQUENCE_DIR):
-        if fname.endswith('.json'):
-            with open(os.path.join(SEQUENCE_DIR, fname)) as f:
-                data = json.load(f)
-                X.append(data['sequence'])
-                label = data['label']
-                if label not in label_map:
-                    label_map[label] = label_count
-                    label_count += 1
-                y.append(label_map[label])
+    for root, _, files in os.walk(SEQUENCE_DIR):
+        label = os.path.basename(root)
+        if label == os.path.basename(SEQUENCE_DIR):
+            continue  # evitar la raíz sin clase
+
+        if label not in label_map:
+            label_map[label] = label_count
+            label_count += 1
+
+        for fname in files:
+            if fname.endswith('.json'):
+                path = os.path.join(root, fname)
+                with open(path, encoding='utf-8') as f:
+                    try:
+                        data = json.load(f)
+                        if 'sequence' not in data or not data['sequence']:
+                            continue
+                        X.append(data['sequence'])
+                        y.append(label_map[label])
+                    except json.JSONDecodeError:
+                        print(f"⚠️ Archivo JSON inválido: {path}")
+                        continue
 
     return np.array(X), np.array(y), label_map
 
@@ -43,8 +55,12 @@ def train_lstm():
     Evalúa el modelo y guarda los resultados.
     """
     X, y, label_map = load_sequences()
-    y_cat = to_categorical(y)
 
+    if len(X) == 0 or len(y) == 0:
+        print("❌ No se encontraron secuencias válidas para entrenamiento.")
+        return
+
+    y_cat = to_categorical(y)
     X_train, X_test, y_train, y_test = train_test_split(
         X, y_cat, test_size=0.2, random_state=42
     )
