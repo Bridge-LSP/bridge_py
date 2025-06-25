@@ -121,3 +121,69 @@ async def delete_session(session_id: str):
         return JSONResponse(content=result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post(
+    "/word/feedback",
+    summary="Provide feedback for specific word",
+    description="Provides feedback for a specific word in the sentence",
+)
+async def feedback_word(request: dict):
+    try:
+        session_id = request.get("session_id")
+        word_position = request.get("word_position")  # 0-based
+        correct_word = request.get("correct_word")
+        
+        if not all([session_id, word_position is not None, correct_word]):
+            raise HTTPException(status_code=400, detail="Missing required fields")
+        
+        result = autocorrector_service.provide_feedback_for_word(session_id, word_position, correct_word)
+        if "error" in result:
+            raise HTTPException(status_code=404, detail=result["error"])
+        return JSONResponse(content=result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete(
+    "/word/remove",
+    summary="Remove word from sentence",
+    description="Removes a specific word from the current sentence",
+)
+async def remove_word(request: dict):
+    try:
+        session_id = request.get("session_id")
+        word_position = request.get("word_position")
+        
+        if not all([session_id, word_position is not None]):
+            raise HTTPException(status_code=400, detail="Missing required fields")
+        
+        result = autocorrector_service.remove_word(session_id, word_position)
+        if "error" in result:
+            raise HTTPException(status_code=404, detail=result["error"])
+        return JSONResponse(content=result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post(
+    "/sentence/end",
+    summary="End current sentence",
+    description="Finalizes the current sentence and resets for a new one",
+)
+async def end_sentence(request: dict):
+    try:
+        session_id = request.get("session_id")
+        
+        if not session_id:
+            raise HTTPException(status_code=400, detail="Missing session_id")
+        
+        result = autocorrector_service.end_sentence(session_id)
+        if "error" in result:
+            raise HTTPException(status_code=404, detail=result["error"])
+        return JSONResponse(content=result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
