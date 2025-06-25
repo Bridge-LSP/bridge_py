@@ -1,7 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Body
 from fastapi.responses import JSONResponse
 from api.models.schemas import (
-    SessionCreateRequest, AddLetterRequest, FinishWordRequest, 
+    SessionCreateRequest, AddLetterRequest, FinishWordRequest,
     FeedbackRequest, SessionStatusRequest, SessionResponse,
     LetterAddedResponse, WordCompletedResponse, SessionStatusResponse,
     FeedbackResponse
@@ -9,9 +9,14 @@ from api.models.schemas import (
 from api.services.bert_autocorrector_service import AutoCorrectorService
 
 router = APIRouter()
-
-# Instancia global del servicio
 autocorrector_service = AutoCorrectorService()
+
+
+def validate_required_fields(data: dict, required: list):
+    for field in required:
+        if data.get(field) is None:
+            raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
+
 
 @router.post(
     "/session/create",
@@ -21,10 +26,10 @@ autocorrector_service = AutoCorrectorService()
 )
 async def create_session(request: SessionCreateRequest):
     try:
-        result = autocorrector_service.create_session(request.session_id)
-        return SessionResponse(**result)
+        return SessionResponse(**autocorrector_service.create_session(request.session_id))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post(
     "/letter/add",
@@ -38,10 +43,9 @@ async def add_letter(request: AddLetterRequest):
         if "error" in result:
             raise HTTPException(status_code=404, detail=result["error"])
         return LetterAddedResponse(**result)
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post(
     "/word/finish",
@@ -55,10 +59,9 @@ async def finish_word(request: FinishWordRequest):
         if "error" in result:
             raise HTTPException(status_code=404, detail=result["error"])
         return WordCompletedResponse(**result)
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post(
     "/session/status",
@@ -72,10 +75,9 @@ async def get_session_status(request: SessionStatusRequest):
         if "error" in result:
             raise HTTPException(status_code=404, detail=result["error"])
         return SessionStatusResponse(**result)
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post(
     "/feedback",
@@ -89,10 +91,9 @@ async def provide_feedback(request: FeedbackRequest):
         if "error" in result:
             raise HTTPException(status_code=404, detail=result["error"])
         return FeedbackResponse(**result)
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post(
     "/session/reset",
@@ -105,10 +106,9 @@ async def reset_session(request: SessionStatusRequest):
         if "error" in result:
             raise HTTPException(status_code=404, detail=result["error"])
         return JSONResponse(content=result)
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.delete(
     "/session/{session_id}",
@@ -117,73 +117,56 @@ async def reset_session(request: SessionStatusRequest):
 )
 async def delete_session(session_id: str):
     try:
-        result = autocorrector_service.delete_session(session_id)
-        return JSONResponse(content=result)
+        return JSONResponse(content=autocorrector_service.delete_session(session_id))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post(
     "/word/feedback",
     summary="Provide feedback for specific word",
     description="Provides feedback for a specific word in the sentence",
 )
-async def feedback_word(request: dict):
+async def feedback_word(payload: dict = Body(...)):
     try:
-        session_id = request.get("session_id")
-        word_position = request.get("word_position")  # 0-based
-        correct_word = request.get("correct_word")
-        
-        if not all([session_id, word_position is not None, correct_word]):
-            raise HTTPException(status_code=400, detail="Missing required fields")
-        
-        result = autocorrector_service.provide_feedback_for_word(session_id, word_position, correct_word)
+        validate_required_fields(payload, ["session_id", "word_position", "correct_word"])
+        result = autocorrector_service.provide_feedback_for_word(
+            payload["session_id"], payload["word_position"], payload["correct_word"]
+        )
         if "error" in result:
             raise HTTPException(status_code=404, detail=result["error"])
         return JSONResponse(content=result)
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.delete(
     "/word/remove",
     summary="Remove word from sentence",
     description="Removes a specific word from the current sentence",
 )
-async def remove_word(request: dict):
+async def remove_word(payload: dict = Body(...)):
     try:
-        session_id = request.get("session_id")
-        word_position = request.get("word_position")
-        
-        if not all([session_id, word_position is not None]):
-            raise HTTPException(status_code=400, detail="Missing required fields")
-        
-        result = autocorrector_service.remove_word(session_id, word_position)
+        validate_required_fields(payload, ["session_id", "word_position"])
+        result = autocorrector_service.remove_word(payload["session_id"], payload["word_position"])
         if "error" in result:
             raise HTTPException(status_code=404, detail=result["error"])
         return JSONResponse(content=result)
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post(
     "/sentence/end",
     summary="End current sentence",
     description="Finalizes the current sentence and resets for a new one",
 )
-async def end_sentence(request: dict):
+async def end_sentence(payload: dict = Body(...)):
     try:
-        session_id = request.get("session_id")
-        
-        if not session_id:
-            raise HTTPException(status_code=400, detail="Missing session_id")
-        
-        result = autocorrector_service.end_sentence(session_id)
+        validate_required_fields(payload, ["session_id"])
+        result = autocorrector_service.end_sentence(payload["session_id"])
         if "error" in result:
             raise HTTPException(status_code=404, detail=result["error"])
         return JSONResponse(content=result)
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

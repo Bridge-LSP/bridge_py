@@ -4,7 +4,7 @@ from engine_bridge.hand_tracker import create_hand_landmarker
 from utils.hand_landmarks_visualizer import draw_landmarks, draw_connections, draw_handedness_label
 from utils.hand_tracking_config import CAMERA_WIDTH, CAMERA_HEIGHT
 from utils.bridge_utils import save_landmark_to_json
-from engine_bridge.bert_autocorrector import AutoCorrector
+from engine_bridge.autocorrector.autocorrector_core import AutoCorrector
 import joblib
 import numpy as np
 import time
