@@ -14,7 +14,7 @@ python -m venv myenv
 myenv\Scripts\activate
 ```
 
-## ▶️ Instala Python 3.10.11 (dentro del entorno virtual)
+## ▶️ Define la versión Python 3.10.11 (dentro del entorno virtual, usualmente siempre despues de activar entorno)
 
 ```bash
 py -3.10 -m venv myenv 
