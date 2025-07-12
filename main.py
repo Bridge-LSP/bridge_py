@@ -8,9 +8,12 @@ from engine_bridge.hand_tracker import create_hand_landmarker
 from engine_bridge.autocorrector.autocorrector_core import AutoCorrector
 from utils.hand_landmarks_visualizer import draw_landmarks, draw_connections
 from utils.hand_tracking_config import CAMERA_WIDTH, CAMERA_HEIGHT
+from utils.draw_unicode import draw_unicode_text
+
 from utils.bridge_utils import save_landmark_to_json
 from tensorflow.keras.models import load_model
 from collections import deque
+from api.services.translation_service import translate_text
 
 # === MODELO Y OBJETOS GLOBALES ===
 MODEL_MODE = "rf"  # Opciones: "lstm", "rf", "both"
@@ -25,6 +28,7 @@ FEATURES_PER_FRAME = 63
 LABEL_MAP_LSTM = {0: 'j', 1: 'll', 2: 'rr', 3: 'z', 4: 'ny'} 
 lstm_model = load_model(LSTM_PATH)
 lstm_buffer = deque(maxlen=SEQUENCE_LENGTH)
+phrase_active = False
 
 # === ESTADOS Y VARIABLES DE CONTROL ===
 last_prediction = None
@@ -37,7 +41,8 @@ feedback_mode = False
 
 # === CONSTANTES ===
 COOLDOWN_TIME = 1.0
-PAUSE_THRESHOLD = 3.0
+PAUSE_THRESHOLD = 2.0
+PHRASE_TIMEOUT = 3.0
 
 # === FUNCIONES AUXILIARES ===
 
@@ -160,7 +165,7 @@ def handle_sentence_confirmation():
 # === BUCLE PRINCIPAL ===
 
 def main():
-    global last_prediction, last_time, last_letter_time, letra_actual, sentence, word_finalized, feedback_mode
+    global last_prediction, last_time, last_letter_time, letra_actual, sentence, word_finalized, feedback_mode, phrase_active
 
     cap = cv2.VideoCapture(0)
     cap.set(3, CAMERA_WIDTH)
@@ -169,6 +174,9 @@ def main():
     cv2.namedWindow("Sign Language Recognition - Auto Corrector")
 
     print("🚀 Sistema iniciado")
+
+    translated_sentence = ""
+    translated_lang = ""
 
     while True:
         ret, frame = cap.read()
@@ -205,6 +213,7 @@ def main():
                     last_prediction = letra_lstm
                     last_time = current_time
                     last_letter_time = current_time
+                    phrase_active = True
                     word_finalized = False
                     detected = True
                     prediction_type = "lstm"
@@ -224,9 +233,35 @@ def main():
                     last_prediction = prediction
                     last_time = current_time
                     last_letter_time = current_time
+                    phrase_active = True
                     word_finalized = False
                     detected = True
                     print(f"✅ Letra: {letra_actual}")
+
+        # === Fin de frase por inactividad ===
+        if (phrase_active and not feedback_mode and autocorrector.sentence_words and 
+            (current_time - last_letter_time > PHRASE_TIMEOUT)):
+            print("⏰ No se detectaron señas por 10 segundos. Fin de frase automático.")
+            final_sentence = autocorrector.end_sentence()
+            print(f"✅ Final: {final_sentence}")
+            sentence, letra_actual, word_finalized = "", "", False
+            phrase_active = False
+            translated_sentence = ""
+            translated_lang = ""
+            # Preguntar por traducción automáticamente
+            if final_sentence.strip():
+                print("¿A qué idioma traducir? (es/en/pt): ", end="")
+                lang = input().strip().lower()
+                if lang in ("es", "en", "pt"):
+                    translated = translate_text(final_sentence, lang)
+                    if translated:
+                        translated_sentence = translated
+                        translated_lang = lang
+                        print(f"✅ Traduccion ({lang}): {translated}")
+                    else:
+                        print("❌ No se pudo traducir.")
+                else:
+                    print("❌ Idioma no soportado.")
 
         if (not detected and autocorrector.word_buffer and 
             current_time - last_letter_time > PAUSE_THRESHOLD and not word_finalized and not feedback_mode):
@@ -239,6 +274,16 @@ def main():
 
         sentence = autocorrector.get_sentence_string()
         draw_interface(frame)
+        # Mostrar traducción si existe
+        if translated_sentence:
+            frame = draw_unicode_text(
+                frame,
+                f"Traducción ({translated_lang}): {translated_sentence}",
+                (20, 320),
+                font_path="arial.ttf",  # Cambia por la ruta a una fuente que soporte Unicode si es necesario
+                font_size=32,
+                color=(0, 100, 255)
+            )
         cv2.imshow("Sign Language Recognition - Auto Corrector", frame)
 
         key = cv2.waitKey(5) & 0xFF
@@ -248,12 +293,29 @@ def main():
             autocorrector.clear_buffer()
             autocorrector.end_sentence()
             sentence, letra_actual, last_prediction = "", "", None
-            word_finalized, feedback_mode = False, False
+            word_finalized, feedback_mode, phrase_active = False, False, False
+            translated_sentence, translated_lang = "", ""
             print("🔄 Sistema reiniciado")
         elif key == ord("e"):
             if autocorrector.sentence_words:
-                print(f"✅ Final: {autocorrector.end_sentence()}")
-                sentence, letra_actual, word_finalized = "", "", False
+                final_sentence = autocorrector.end_sentence()
+                print(f"✅ Final: {final_sentence}")
+                sentence, letra_actual, word_finalized, phrase_active = "", "", False, False
+                translated_sentence, translated_lang = "", ""
+                # Preguntar por traducción automáticamente
+                if final_sentence.strip():
+                    print("¿A qué idioma traducir? (es/en/pt): ", end="")
+                    lang = input().strip().lower()
+                    if lang in ("es", "en", "pt"):
+                        translated = translate_text(final_sentence, lang)
+                        if translated:
+                            translated_sentence = translated
+                            translated_lang = lang
+                            print(f"✅ Traducción ({lang}): {translated}")
+                        else:
+                            print("❌ No se pudo traducir.")
+                    else:
+                        print("❌ Idioma no soportado.")
             else:
                 print("❌ Nada que finalizar")
         elif key == ord("d") and not feedback_mode:
@@ -269,6 +331,22 @@ def main():
                 sentence += " " + word if sentence else word
                 print(f"📝 Palabra forzada: {word}")
                 word_finalized, letra_actual = True, ""
+        elif key == ord("t"):
+            if sentence.strip():
+                print("¿A qué idioma traducir? (es/en/pt): ", end="")
+                lang = input().strip().lower()
+                if lang in ("es", "en", "pt"):
+                    translated = translate_text(sentence, lang)
+                    if translated:
+                        translated_sentence = translated
+                        translated_lang = lang
+                        print(f"✅ Traducción ({lang}): {translated}")
+                    else:
+                        print("❌ No se pudo traducir.")
+                else:
+                    print("❌ Idioma no soportado.")
+            else:
+                print("❌ No hay frase para traducir.")
 
     cap.release()
     cv2.destroyAllWindows()
