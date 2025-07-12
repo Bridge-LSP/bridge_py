@@ -2,9 +2,8 @@ from fastapi import APIRouter, HTTPException, Body
 from fastapi.responses import JSONResponse
 from api.models.schemas import (
     SessionCreateRequest, AddLetterRequest, FinishWordRequest,
-    FeedbackRequest, SessionStatusRequest, SessionResponse,
-    LetterAddedResponse, WordCompletedResponse, SessionStatusResponse,
-    FeedbackResponse
+    SessionStatusRequest, SessionResponse,
+    LetterAddedResponse, WordCompletedResponse, SessionStatusResponse
 )
 from api.services.bert_autocorrector_service import AutoCorrectorService
 
@@ -80,17 +79,17 @@ async def get_session_status(request: SessionStatusRequest):
 
 
 @router.post(
-    "/feedback",
-    response_model=FeedbackResponse,
-    summary="Provide feedback",
-    description="Provides feedback to improve autocorrection",
+    "/sentence/end",
+    summary="End current sentence",
+    description="Finalizes the current sentence and resets for a new one",
 )
-async def provide_feedback(request: FeedbackRequest):
+async def end_sentence(payload: dict = Body(...)):
     try:
-        result = autocorrector_service.provide_feedback(request.session_id, request.correct_word)
+        validate_required_fields(payload, ["session_id"])
+        result = autocorrector_service.end_sentence(payload["session_id"])
         if "error" in result:
             raise HTTPException(status_code=404, detail=result["error"])
-        return FeedbackResponse(**result)
+        return JSONResponse(content=result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -110,36 +109,7 @@ async def reset_session(request: SessionStatusRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete(
-    "/session/{session_id}",
-    summary="Delete session",
-    description="Deletes the autocorrector session",
-)
-async def delete_session(session_id: str):
-    try:
-        return JSONResponse(content=autocorrector_service.delete_session(session_id))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post(
-    "/word/feedback",
-    summary="Provide feedback for specific word",
-    description="Provides feedback for a specific word in the sentence",
-)
-async def feedback_word(payload: dict = Body(...)):
-    try:
-        validate_required_fields(payload, ["session_id", "word_position", "correct_word"])
-        result = autocorrector_service.provide_feedback_for_word(
-            payload["session_id"], payload["word_position"], payload["correct_word"]
-        )
-        if "error" in result:
-            raise HTTPException(status_code=404, detail=result["error"])
-        return JSONResponse(content=result)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
+# 7. ELIMINAR PALABRA (Funcionalidad avanzada)
 @router.delete(
     "/word/remove",
     summary="Remove word from sentence",
@@ -157,14 +127,16 @@ async def remove_word(payload: dict = Body(...)):
 
 
 @router.post(
-    "/sentence/end",
-    summary="End current sentence",
-    description="Finalizes the current sentence and resets for a new one",
+    "/word/feedback",
+    summary="Provide feedback for specific word",
+    description="Provides feedback for a specific word in the sentence",
 )
-async def end_sentence(payload: dict = Body(...)):
+async def feedback_word(payload: dict = Body(...)):
     try:
-        validate_required_fields(payload, ["session_id"])
-        result = autocorrector_service.end_sentence(payload["session_id"])
+        validate_required_fields(payload, ["session_id", "word_position", "correct_word"])
+        result = autocorrector_service.provide_feedback_for_word(
+            payload["session_id"], payload["word_position"], payload["correct_word"]
+        )
         if "error" in result:
             raise HTTPException(status_code=404, detail=result["error"])
         return JSONResponse(content=result)
