@@ -1,16 +1,26 @@
 import pyttsx3
 import tempfile
 
-def generar_audio(texto: str, idioma: str = "es") -> str:
+def generar_audio(texto, idioma="es"):
     engine = pyttsx3.init()
-    voces = engine.getProperty('voices')
-    for voice in voces:
-        langs = [l.decode('utf-8') if isinstance(l, bytes) else l for l in voice.languages]
-        if any(idioma in l for l in langs):
+    voices = engine.getProperty('voices')
+    for voice in voices:
+        lang_match = False
+        # Verifica que voice.languages tenga al menos un elemento
+        if hasattr(voice, "languages") and len(voice.languages) > 0:
+            try:
+                lang = voice.languages[0].decode().lower()
+                if idioma in lang:
+                    lang_match = True
+            except Exception:
+                pass
+        # También verifica en el id de la voz
+        if idioma in voice.id.lower():
+            lang_match = True
+        if lang_match:
             engine.setProperty('voice', voice.id)
             break
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
-        filename = f.name
-    engine.save_to_file(texto, filename)
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+    engine.save_to_file(texto, temp_file.name)
     engine.runAndWait()
-    return filename
+    return temp_file.name

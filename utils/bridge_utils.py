@@ -2,7 +2,9 @@ import json
 import os
 from datetime import datetime
 
+# === FUNCIONES DE UTILIDAD PARA GUARDADO DE LANDMARKS ===
 def save_landmark_to_json(handedness, landmarks, label=None, output_path='dataset_bridge/landmarks_static.json'):   
+    """Guarda las coordenadas de landmarks de una mano en un archivo JSON."""
     data_point = {
         "timestamp": datetime.utcnow().isoformat(),
         "handedness": handedness,

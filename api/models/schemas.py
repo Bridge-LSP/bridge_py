@@ -58,3 +58,10 @@ class SessionStatusResponse(BaseModel):
 class FeedbackResponse(BaseModel):
     feedback_applied: bool
     learned_correction: Optional[str] = None
+
+class TranslationRequest(BaseModel):
+    language: str
+    text: str
+
+class TranslationResponse(BaseModel):
+    translation: str

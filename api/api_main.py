@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from api.routers import detection, text_to_speech, autocorrector
+from api.routers import detection, text_to_speech, autocorrector, translation
 
 app = FastAPI(
     title="Bridge Landmark Detection API",
@@ -18,6 +18,7 @@ app = FastAPI(
 async def root():
     return {"message": "Bridge API is running! 🌉"}
 
-app.include_router(detection.router, prefix="/detection", tags=["detection"])
-app.include_router(text_to_speech.router, prefix="/tts", tags=["text-to-speech"])
+app.include_router(detection.router, tags=["detection"])
+app.include_router(text_to_speech.router, tags=["text-to-speech"])
 app.include_router(autocorrector.router, prefix="/autocorrector", tags=["autocorrector"])
+app.include_router(translation.router, tags=["translation"])

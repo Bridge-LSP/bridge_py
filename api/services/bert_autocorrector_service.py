@@ -1,4 +1,4 @@
-from engine_bridge.bert_autocorrector import AutoCorrector
+from engine_bridge.autocorrector.autocorrector_core import AutoCorrector
 from typing import Dict, List, Optional
 import time
 

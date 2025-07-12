@@ -14,6 +14,13 @@ python -m venv myenv
 myenv\Scripts\activate
 ```
 
+## ▶️ Define la versión Python 3.10.11 (dentro del entorno virtual, usualmente siempre despues de activar entorno)
+
+```bash
+py -3.10 -m venv myenv 
+```
+
+
 ## 📦 Instalar dependencias
 
 ```bash
@@ -26,7 +33,7 @@ pip install -r requirements.txt
 pip freeze > requirements.txt
 ```
 
-
+<br><br><br>
 
 
 ## 🚀 Ejecutar backend local con FastAPI
@@ -51,6 +58,7 @@ Y la interfaz de prueba automática de la API (Swagger UI) estará disponible en
 http://127.0.0.1:8000/docs
 ```
 
+<br><br><br>
 
 
 ## 🚀 Playground de Optimización en Bridge

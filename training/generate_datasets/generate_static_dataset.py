@@ -5,10 +5,13 @@ import mediapipe as mp
 from tqdm import tqdm
 from engine_bridge.hand_tracker import create_hand_landmarker
 
+# === RUTAS Y PARÁMETROS ===
 INPUT_FOLDER = 'training/dataset_multimedia/dataset_static'
 OUTPUT_JSON = 'dataset_bridge/landmarks_static.json'
 
+# === GENERACIÓN DEL DATASET A PARTIR DE IMÁGENES Y VIDEOS ===
 def generate_dataset_from_folder(label_filter=None):
+    """Procesa imágenes y videos de INPUT_FOLDER para generar landmarks y guardarlos en un JSON."""
     hand_landmarker_image = create_hand_landmarker(running_mode="IMAGE")
     hand_landmarker_video = create_hand_landmarker(running_mode="VIDEO")
     dataset = []
@@ -31,6 +34,7 @@ def generate_dataset_from_folder(label_filter=None):
         json.dump(dataset, f, indent=2)
     print(f"\n✅ Dataset generado en {OUTPUT_JSON} con {len(dataset)} muestras.")
 
+# === PROCESAMIENTO DE IMÁGENES ESTÁTICAS ===
 def process_image(filepath, label_folder, hand_landmarker, dataset):
     image = cv2.imread(filepath)
     if image is None:
@@ -52,6 +56,7 @@ def process_image(filepath, label_folder, hand_landmarker, dataset):
                 ]
             })
 
+# === PROCESAMIENTO DE FRAMES DE VIDEO ===
 def process_video(filepath, label_folder, hand_landmarker, dataset):
     cap = cv2.VideoCapture(filepath)
     prev_landmarks = None
@@ -102,5 +107,5 @@ def process_video(filepath, label_folder, hand_landmarker, dataset):
     print(f"[DEBUG] Video {filepath} procesado con éxito.")
 
 if __name__ == "__main__":
-    # deja None para procesar todo, sino pones 'a'
+    # Deja None para procesar todas las letras, o pon 'a', 'b', etc.
     generate_dataset_from_folder(label_filter=None)
