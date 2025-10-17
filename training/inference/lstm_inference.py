@@ -1,7 +1,7 @@
 import cv2
 import mediapipe as mp
 import numpy as np
-from tensorflow.keras.models import load_model
+import tensorflow as tf
 from collections import deque
 
 # === CONFIGURACIÓN GLOBAL ===
@@ -23,7 +23,7 @@ def extract_landmarks_from_frame(frame):
 
 # === BUCLE PRINCIPAL DE INFERENCIA ===
 if __name__ == "__main__":
-    model = load_model(MODEL_PATH)
+    model = tf.keras.models.load_model(MODEL_PATH)
     cap = cv2.VideoCapture(0)
     buffer_seq = deque(maxlen=SEQUENCE_LENGTH)
 

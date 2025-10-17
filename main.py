@@ -35,11 +35,11 @@ LABEL_MAP_LSTM = {0: 'j', 1: 'll', 2: 'rr', 3: 'z', 4: 'ny'}
 
 if MODEL_MODE in ("lstm", "both"):
     try:
-        from tensorflow.keras.models import load_model
+        import tensorflow as tf
         LSTM_PATH = 'models/lstm_model.h5'
         SEQUENCE_LENGTH = 30
         FEATURES_PER_FRAME = 63
-        lstm_model = load_model(LSTM_PATH)
+        lstm_model = tf.keras.models.load_model(LSTM_PATH)
         lstm_buffer = deque(maxlen=SEQUENCE_LENGTH)
         print("✅ Modelo LSTM cargado correctamente")
     except ImportError:
