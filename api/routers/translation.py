@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
-from api.services.translation_service import translate_text
-from api.models.schemas import (TranslationRequest, TranslationResponse)
+from api.services.translation_service import translate_text, LANG_MAP
+from api.models.schemas import TranslationRequest, TranslationResponse
 
 router = APIRouter()
 
@@ -8,18 +8,19 @@ router = APIRouter()
     "/translate",
     response_model=TranslationResponse,
     summary="Translate Text",
-    description="Translates Spanish text to the specified target language (en, pt).",
+    description="Translates text to the specified target language using DeepL API.",
     response_description="The translated text."
 )
 def translate_endpoint(request: TranslationRequest):
-    """
-    Traduce texto del español al idioma especificado.
-    """
-    # Validar idioma soportado
-    if request.language.lower() not in ["en", "pt"]:
-        raise HTTPException(status_code=400, detail="Idioma no soportado. Use 'en' o 'pt'")
+    if request.language.lower() not in LANG_MAP:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Idioma no soportado. Use uno de: {', '.join(LANG_MAP.keys())}"
+        )
     
-    # Realizar traducción
+    if not request.text or not request.text.strip():
+        raise HTTPException(status_code=400, detail="El texto no puede estar vacío")
+    
     translated_text = translate_text(request.text, request.language.lower())
     
     if translated_text is None:

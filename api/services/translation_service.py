@@ -1,31 +1,87 @@
 import deepl
 
-# Tu clave de API de DeepL
 API_KEY = '2e27de5f-2269-47fb-af2d-e373efdc6dcf:fx'
+translator = deepl.Translator(API_KEY, server_url="https://api-free.deepl.com")
 
-# Crear el objeto traductor de DeepL
-translator = deepl.Translator(API_KEY)
-
-# Mapeo de idiomas (DeepL usa codificaciones específicas como 'EN', 'ES', 'PT')
 LANG_MAP = {
-    "es": "ES",
-    "en": "EN-US",  # Usa "EN" para inglés
-    "pt": "PT-BR"   # Usa "PT" para portugués
+    "ar": "AR",
+    "bg": "BG", 
+    "cs": "CS",
+    "da": "DA",
+    "de": "DE",
+    "el": "EL",
+    "en": "EN-US",
+    "en-gb": "EN-GB",
+    "en-us": "EN-US",
+    "es-419": "ES-419",
+    "et": "ET",
+    "fi": "FI",
+    "fr": "FR",
+    "he": "HE",
+    "hu": "HU",
+    "id": "ID",
+    "it": "IT",
+    "ja": "JA",
+    "ko": "KO",
+    "lt": "LT",
+    "lv": "LV",
+    "nb": "NB",        # Norwegian Bokmål - Noruego bokmål
+    "nl": "NL",        # Dutch - Holandés
+    "pl": "PL",        # Polish - Polaco
+    "pt": "PT-BR",     # Portuguese - Portugués
+    "pt-br": "PT-BR",  # Portuguese (Brazilian) - Portugués brasileño
+    "pt-pt": "PT-PT",  # Portuguese (European) - Portugués europeo
+    "ro": "RO",        # Romanian - Rumano
+    "ru": "RU",        # Russian - Ruso
+    "sk": "SK",        # Slovak - Eslovaco
+    "sl": "SL",        # Slovenian - Esloveno
+    "sv": "SV",        # Swedish - Sueco
+    "th": "TH",        # Thai - Tailandés
+    "tr": "TR",        # Turkish - Turco
+    "uk": "UK",        # Ukrainian - Ucraniano
+    "vi": "VI",        # Vietnamese - Vietnamita
+    "zh": "ZH-HANS",   # Chinese - Chino
+    "zh-hans": "ZH-HANS", # Chinese (Simplified) - Chino simplificado
+    "zh-hant": "ZH-HANT"  # Chinese (Traditional) - Chino tradicional
 }
 
 def translate_text(text, target_lang):
-    """
-    Traduce el texto usando DeepL.
-    :param text: El texto a traducir.
-    :param target_lang: El idioma de destino (ej. 'es', 'en', 'pt')
-    :return: El texto traducido o None en caso de error.
-    """
-    deepl_lang = LANG_MAP.get(target_lang.lower(), "EN")  # Usa 'EN' como predeterminado
+    if not text or not text.strip():
+        print("❌ Texto vacío para traducir")
+        return None
+        
+    deepl_lang = LANG_MAP.get(target_lang.lower())
+    
+    if not deepl_lang:
+        print(f"❌ Idioma no soportado: {target_lang}")
+        return None
 
     try:
-        # Realizar la traducción con la API de DeepL
-        result = translator.translate_text(text, target_lang=deepl_lang)
-        return result.text
+        print(f"🔍 DEBUG: Traduciendo '{text}' de ES a {deepl_lang}")
+        
+        result = translator.translate_text(
+            text, 
+            source_lang="ES",
+            target_lang=deepl_lang
+        )
+        
+        translated_text = result.text
+        detected_lang = result.detected_source_lang
+        
+        print(f"🔍 DEBUG: Idioma fuente forzado: ES")
+        print(f"🔍 DEBUG: Resultado: '{translated_text}'")
+        
+        if translated_text.lower().strip() == text.lower().strip():
+            print(f"⚠️ La traducción es igual al original")
+            if target_lang.lower() == "es":
+                return text
+            return None
+            
+        return translated_text
+        
+    except deepl.DeepLException as e:
+        print(f"❌ Error específico de DeepL: {e}")
+        return None
     except Exception as e:
-        print(f"❌ Error al traducir con DeepL: {e}")
+        print(f"❌ Error general al traducir: {e}")
         return None
