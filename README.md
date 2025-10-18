@@ -76,3 +76,18 @@ python -m training.generate_datasets.generate_dynamic_dataset
 python -m training.trainers.model_trainer_forest
 python -m training.trainers.model_trainer_lstm
 ```
+
+
+### Para ejecutar el servidor WebSocket independiente:
+```bash
+python realtime_server.py --host 0.0.0.0 --port 8765
+```
+
+### Para ejecutar la API completa con WebSocket integrado:
+```bash
+uvicorn api.api_main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Para probar el cliente móvil de ejemplo:
+python examples/mobile_client_example.py
+
