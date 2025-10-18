@@ -1,26 +1,169 @@
 import pyttsx3
+import pygame
 import tempfile
+import os
+import threading
+import time
+from typing import Optional, Dict
 
-def generar_audio(texto, idioma="es"):
-    engine = pyttsx3.init()
-    voices = engine.getProperty('voices')
-    for voice in voices:
-        lang_match = False
-        # Verifica que voice.languages tenga al menos un elemento
-        if hasattr(voice, "languages") and len(voice.languages) > 0:
-            try:
-                lang = voice.languages[0].decode().lower()
-                if idioma in lang:
-                    lang_match = True
-            except Exception:
-                pass
-        # También verifica en el id de la voz
-        if idioma in voice.id.lower():
-            lang_match = True
-        if lang_match:
-            engine.setProperty('voice', voice.id)
-            break
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
-    engine.save_to_file(texto, temp_file.name)
-    engine.runAndWait()
-    return temp_file.name
+class RealtimeTTS:
+    """Motor de Text-to-Speech en tiempo real para Bridge"""
+    
+    def __init__(self):
+        self.engine = pyttsx3.init()
+        self._setup_engine()
+        self._setup_audio_player()
+        self.is_playing = False
+        self.current_file = None
+        
+    def _setup_engine(self):
+        """Configurar motor TTS optimizado"""
+        # Configurar velocidad y volumen
+        self.engine.setProperty('rate', 180)  # Velocidad natural
+        self.engine.setProperty('volume', 0.9)  # Volumen alto
+        
+        # Configurar voces por idioma
+        self.voices_map = self._map_available_voices()
+        print(f"🎤 Voces disponibles: {list(self.voices_map.keys())}")
+    
+    def _setup_audio_player(self):
+        """Inicializar reproductor de audio"""
+        try:
+            pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=1024)
+            print("🔊 Reproductor de audio inicializado")
+        except Exception as e:
+            print(f"⚠️ Error inicializando audio: {e}")
+    
+    def _map_available_voices(self) -> Dict[str, str]:
+        """Mapear voces disponibles por idioma"""
+        voices_map = {}
+        voices = self.engine.getProperty('voices')
+        
+        # Mapeo de idiomas comunes
+        lang_patterns = {
+            'es': ['spanish', 'españa', 'mexico', 'es_'],
+            'en': ['english', 'united states', 'en_'],
+            'fr': ['french', 'france', 'fr_'],
+            'de': ['german', 'deutsch', 'de_'],
+            'it': ['italian', 'italy', 'it_'],
+            'pt': ['portuguese', 'brasil', 'pt_'],
+            'ru': ['russian', 'russia', 'ru_'],
+            'zh': ['chinese', 'mandarin', 'zh_'],
+            'ja': ['japanese', 'japan', 'ja_'],
+            'ko': ['korean', 'korea', 'ko_']
+        }
+        
+        for voice in voices:
+            voice_id = voice.id.lower()
+            voice_name = voice.name.lower() if voice.name else ""
+            
+            for lang_code, patterns in lang_patterns.items():
+                if any(pattern in voice_id or pattern in voice_name for pattern in patterns):
+                    if lang_code not in voices_map:  # Usar la primera voz encontrada
+                        voices_map[lang_code] = voice.id
+                        print(f"✅ Voz {lang_code}: {voice.name}")
+                        break
+        
+        # Voz por defecto si no se encuentra específica
+        if voices and 'es' not in voices_map:
+            voices_map['es'] = voices[0].id
+            print(f"⚠️ Usando voz por defecto para español: {voices[0].name}")
+        
+        return voices_map
+    
+    def _set_voice_for_language(self, lang_code: str):
+        """Configurar voz según idioma"""
+        voice_id = self.voices_map.get(lang_code, self.voices_map.get('es'))
+        if voice_id:
+            self.engine.setProperty('voice', voice_id)
+            print(f"🎤 Voz configurada para {lang_code}")
+    
+    def speak_text_async(self, text: str, language: str = 'es') -> bool:
+        """Reproducir texto de forma asíncrona (no bloquea la UI)"""
+        if not text.strip():
+            return False
+        
+        # Ejecutar TTS en hilo separado para no bloquear
+        thread = threading.Thread(
+            target=self._speak_text_sync, 
+            args=(text, language),
+            daemon=True
+        )
+        thread.start()
+        return True
+    
+    def _speak_text_sync(self, text: str, language: str):
+        """Reproducir texto de forma síncrona (uso interno)"""
+        try:
+            print(f"🔊 Generando audio: '{text}' ({language})")
+            
+            # Configurar voz
+            self._set_voice_for_language(language)
+            
+            # Generar archivo temporal
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
+            temp_path = temp_file.name
+            temp_file.close()
+            
+            # Generar audio
+            self.engine.save_to_file(text, temp_path)
+            self.engine.runAndWait()
+            
+            # Reproducir audio
+            if os.path.exists(temp_path):
+                self._play_audio_file(temp_path)
+                # Limpiar archivo temporal después de reproducir
+                try:
+                    os.unlink(temp_path)
+                except:
+                    pass
+            else:
+                print("❌ Error: Archivo de audio no generado")
+                
+        except Exception as e:
+            print(f"❌ Error en TTS: {e}")
+    
+    def _play_audio_file(self, file_path: str):
+        """Reproducir archivo de audio"""
+        try:
+            self.is_playing = True
+            self.current_file = file_path
+            
+            pygame.mixer.music.load(file_path)
+            pygame.mixer.music.play()
+            
+            # Esperar a que termine la reproducción
+            while pygame.mixer.music.get_busy():
+                time.sleep(0.1)
+            
+            self.is_playing = False
+            self.current_file = None
+            print("✅ Audio reproducido completamente")
+            
+        except Exception as e:
+            print(f"❌ Error reproduciendo audio: {e}")
+            self.is_playing = False
+    
+    def stop_current_audio(self):
+        """Detener audio actual"""
+        if self.is_playing:
+            pygame.mixer.music.stop()
+            self.is_playing = False
+            print("🛑 Audio detenido")
+    
+    def speak_sentence_completion(self, sentence: str, language: str = 'es'):
+        """Reproducir frase completada (función principal para Bridge)"""
+        print(f"🎯 TTS: Frase completada en {language}")
+        return self.speak_text_async(sentence, language)
+    
+    def get_status(self) -> Dict:
+        """Obtener estado del TTS"""
+        return {
+            "is_playing": self.is_playing,
+            "current_file": self.current_file,
+            "available_languages": list(self.voices_map.keys()),
+            "engine_ready": self.engine is not None
+        }
+
+# Instancia global para usar en main.py
+bridge_tts = RealtimeTTS()

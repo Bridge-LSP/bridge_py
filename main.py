@@ -13,6 +13,7 @@ from utils.hand_tracking_config import CAMERA_WIDTH, CAMERA_HEIGHT
 from utils.draw_unicode import draw_unicode_text
 from collections import deque
 from api.services.translation_service import translate_text, LANG_MAP
+from engine_bridge.text_to_speech import bridge_tts
 
 if os.name == 'nt':
     try:
@@ -64,6 +65,10 @@ translated_lang = ""
 COOLDOWN_TIME = 1.0
 PAUSE_THRESHOLD = 2.0
 PHRASE_TIMEOUT = 5.0
+
+# 🎤 CONFIGURACIÓN TTS
+TTS_ENABLED = True  # ⭐ NUEVA: Activar/desactivar TTS
+TTS_AUTO_PLAY = True  # ⭐ NUEVA: Reproducir automáticamente al completar frase
 
 def extract_features(landmarks):
     return np.array([[lm.x, lm.y, lm.z] for lm in landmarks]).flatten().reshape(1, -1)
@@ -278,6 +283,19 @@ def complete_sentence():
         sentence_completed = True
         phrase_active = False
         print(f"✅ Frase completada: {final_sentence}")
+        
+        # ⭐ NUEVA FUNCIONALIDAD: TTS AUTOMÁTICO
+        if TTS_ENABLED and TTS_AUTO_PLAY:
+            if AUTO_TRANSLATE_TO and translated_sentence:
+                # Reproducir traducción si está disponible
+                bridge_tts.speak_sentence_completion(translated_sentence, AUTO_TRANSLATE_TO)
+                print(f"🔊 Reproduciendo traducción en {AUTO_TRANSLATE_TO}")
+            else:
+                # Reproducir frase original en español
+                bridge_tts.speak_sentence_completion(final_sentence, 'es')
+                print(f"🔊 Reproduciendo frase en español")
+        
+        # Traducción automática (existente)
         if AUTO_TRANSLATE_TO:
             translated = translate_text(final_sentence, AUTO_TRANSLATE_TO)
             if translated:
@@ -290,13 +308,19 @@ def complete_sentence():
                     "id": "Bahasa Indonesia", "it": "Italiano", "ja": "日本語", "ko": "한국어",
                     "lt": "Lietuvių", "lv": "Latviešu", "nb": "Norsk", "nl": "Nederlands",
                     "pl": "Polski", "pt": "Português", "ro": "Română", "ru": "Русский",
-                    "sk": "Slovenčina", "sl": "Slovenščina", "sv": "Svenska", "th": "ไทย",
+                    "sk": "Slovenčina", "sl": "Slovenščina", "sv": "Svenska", "th": "ไทy",
                     "tr": "Türkçe", "uk": "Українська", "vi": "Tiếng Việt", 
                     "zh": "中文", "zh-hans": "中文简体", "zh-hant": "中文繁體"
                 }
                 print(f"✅ Traducción automática ({lang_names.get(AUTO_TRANSLATE_TO, AUTO_TRANSLATE_TO)}): {translated}")
+                
+                # ⭐ REPRODUCIR TRADUCCIÓN SI TTS ESTÁ ACTIVADO Y NO SE REPRODUJO ANTES
+                if TTS_ENABLED and TTS_AUTO_PLAY:
+                    bridge_tts.speak_sentence_completion(translated, AUTO_TRANSLATE_TO)
+                    print(f"🔊 Reproduciendo traducción en {AUTO_TRANSLATE_TO}")
+    
     return final_sentence
-
+ 
 def main():
     global last_prediction, last_time, last_letter_time, letra_actual
     global word_finalized, feedback_mode, phrase_active, sentence_completed
@@ -402,14 +426,31 @@ def main():
 
         key = cv2.waitKey(5) & 0xFF
         if key == ord("q"):
+            # ⭐ DETENER AUDIO AL SALIR
+            if TTS_ENABLED:
+                bridge_tts.stop_current_audio()
             break
         elif key == ord("r"):
+            # ⭐ DETENER AUDIO AL REINICIAR
+            if TTS_ENABLED:
+                bridge_tts.stop_current_audio()
             autocorrector.clear_buffer()
             autocorrector.end_sentence()
             letra_actual, last_prediction = "", None
             word_finalized, feedback_mode, phrase_active = False, False, False
             clear_completed_sentence()
             print("🔄 Sistema reiniciado completamente")
+        # ⭐ NUEVOS CONTROLES TTS
+        elif key == ord("s"):  # S = Stop audio
+            if TTS_ENABLED:
+                bridge_tts.stop_current_audio()
+                print("🛑 Audio detenido manualmente")
+        elif key == ord("p"):  # P = Play/repeat last sentence
+            if TTS_ENABLED and (completed_sentence or translated_sentence):
+                text_to_play = translated_sentence if translated_sentence else completed_sentence
+                lang_to_use = translated_lang if translated_sentence else 'es'
+                bridge_tts.speak_sentence_completion(text_to_play, lang_to_use)
+                print(f"🔊 Repitiendo audio en {lang_to_use}")
         elif key == ord("e"):
             if autocorrector.sentence_words:
                 complete_sentence()
@@ -430,7 +471,6 @@ def main():
         elif key == ord("t"):
             sentence_to_translate = completed_sentence if sentence_completed else autocorrector.get_sentence_string()
             if sentence_to_translate.strip():
-                print("¿A qué idioma traducir? (ar/bg/cs/da/de/el/en/et/fi/fr/he/hu/id/it/ja/ko/lt/lv/nb/nl/pl/pt/ro/ru/sk/sl/sv/th/tr/uk/vi/zh): ", end="")
                 lang = input().strip().lower()
                 if lang in LANG_MAP:
                     translated = translate_text(sentence_to_translate, lang)
@@ -447,6 +487,9 @@ def main():
 
     cap.release()
     cv2.destroyAllWindows()
+
+    if TTS_ENABLED:
+        bridge_tts.stop_current_audio()
 
     stats = autocorrector.get_successful_sentences_stats()
     health = autocorrector.get_correction_health_report()
