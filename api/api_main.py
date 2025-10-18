@@ -16,17 +16,15 @@ app = FastAPI(
     }
 )
 
-# Middleware CORS optimizado para móviles
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # En producción: dominios específicos
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
     expose_headers=["X-Processing-Time", "X-Response-Time"]
 )
 
-# Middleware de rendimiento
 @app.middleware("http")
 async def add_performance_headers(request, call_next):
     start_time = time.time()
@@ -57,7 +55,6 @@ async def root():
         "optimization": "Diseñada para LSP conversacional < 50ms"
     }
 
-# Incluir routers
 app.include_router(detection.router, tags=["detection"])
 app.include_router(text_to_speech.router, tags=["text-to-speech"])
 app.include_router(autocorrector.router, prefix="/autocorrector", tags=["autocorrector"])

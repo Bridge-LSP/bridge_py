@@ -34,7 +34,6 @@ class ConnectionManager:
         try:
             start_time = time.time()
             
-            # Decodificar imagen base64
             image_data = base64.b64decode(frame_data)
             np_arr = np.frombuffer(image_data, np.uint8)
             image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
@@ -43,11 +42,9 @@ class ConnectionManager:
                 await websocket.send_text(json.dumps({"error": "Imagen inválida"}))
                 return
             
-            # Convertir a RGB para MediaPipe
             rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_image)
             
-            # Detección de manos ultra-rápida
             results = self.landmarker.detect(mp_image)
             
             response = {
@@ -56,18 +53,14 @@ class ConnectionManager:
                 "processing_time_ms": 0
             }
             
-            # Procesar landmarks si se detectan manos
             if results.hand_world_landmarks and results.handedness:
                 for idx, landmarks in enumerate(results.hand_world_landmarks):
-                    # Extracción rápida de características
                     features = extract_features(landmarks)
                     
-                    # Predicción con Random Forest (ultra-rápido)
                     prediction = self.model.predict(features)[0]
                     probabilities = self.model.predict_proba(features)[0]
                     confidence = float(max(probabilities))
                     
-                    # Solo enviar predicciones con alta confianza
                     if confidence > 0.75:
                         handedness = results.handedness[idx][0].category_name.lower()
                         
@@ -78,11 +71,9 @@ class ConnectionManager:
                             "hand_index": idx
                         })
             
-            # Calcular tiempo de procesamiento
             processing_time = (time.time() - start_time) * 1000
             response["processing_time_ms"] = round(processing_time, 2)
             
-            # Enviar respuesta
             await websocket.send_text(json.dumps(response))
             
         except Exception as e:
@@ -92,7 +83,6 @@ class ConnectionManager:
             }
             await websocket.send_text(json.dumps(error_response))
 
-# Manager global
 manager = ConnectionManager()
 
 @router.websocket("/ws/detection/{client_id}")
@@ -102,10 +92,8 @@ async def websocket_detection_endpoint(websocket: WebSocket, client_id: str):
     
     try:
         while True:
-            # Recibir frame como base64
             data = await websocket.receive_text()
             
-            # Procesar inmediatamente
             await manager.process_frame_ultra_fast(websocket, data)
             
     except WebSocketDisconnect:

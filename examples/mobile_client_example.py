@@ -26,7 +26,6 @@ class BridgeMobileClient:
             self.is_connected = True
             print(f"🔗 Conectado como {self.client_id}")
             
-            # Escuchar mensajes del servidor
             asyncio.create_task(self.listen_messages())
             return True
         except Exception as e:
@@ -56,19 +55,15 @@ class BridgeMobileClient:
         elif msg_type == "prediction":
             self.stats['predictions_received'] += 1
             
-            # Mostrar predicciones
             predictions = data.get("predictions", [])
             for pred in predictions:
                 print(f"📝 Letra: {pred['letter']} ({pred['confidence']:.2f}) - {pred['handedness']}")
             
-            # Predicción estable (la importante para el móvil)
             stable = data.get("stable_prediction")
             if stable:
                 self.stats['stable_predictions'] += 1
                 print(f"⚡ ESTABLE: {stable['letter']} ({stable['confidence']:.2f})")
-                # Aquí la app móvil actualizaría la UI
             
-            # Métricas de rendimiento
             processing_time = data.get("processing_time_ms", 0)
             fps = data.get("fps", 0)
             print(f"⏱️ Procesamiento: {processing_time}ms, FPS: {fps}")
@@ -86,11 +81,9 @@ class BridgeMobileClient:
             return False
         
         try:
-            # Codificar frame como base64
             _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
             frame_base64 = base64.b64encode(buffer).decode('utf-8')
             
-            # Enviar al servidor
             await self.websocket.send(frame_base64)
             return True
             
@@ -104,11 +97,9 @@ class BridgeMobileClient:
             return False
         
         try:
-            # Codificar frame
             _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
             frame_base64 = base64.b64encode(buffer).decode('utf-8')
             
-            # Crear mensaje JSON
             message = {
                 "frame": frame_base64,
                 "timestamp": time.time(),
@@ -136,14 +127,12 @@ class BridgeMobileClient:
         """Obtener estadísticas del cliente"""
         return self.stats
 
-# Ejemplo de uso con cámara web
 async def demo_with_camera():
     client = BridgeMobileClient("ws://localhost:8765")
     
     if not await client.connect():
         return
     
-    # Inicializar cámara
     cap = cv2.VideoCapture(0)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
@@ -157,11 +146,9 @@ async def demo_with_camera():
             if not ret:
                 break
             
-            # Enviar solo cada 3er frame para no saturar
             if frame_count % 3 == 0:
                 await client.send_frame(frame)
             
-            # Mostrar frame local
             cv2.imshow("Bridge Mobile Client Demo", frame)
             
             if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -169,8 +156,7 @@ async def demo_with_camera():
             
             frame_count += 1
             
-            # Pequeña pausa para control de flujo
-            await asyncio.sleep(0.033)  # ~30 FPS
+            await asyncio.sleep(0.033) 
             
     except KeyboardInterrupt:
         print("\n🛑 Demo interrumpida")
@@ -179,7 +165,6 @@ async def demo_with_camera():
         cv2.destroyAllWindows()
         await client.disconnect()
         
-        # Mostrar estadísticas finales
         stats = client.get_stats()
         print(f"\n📊 Estadísticas finales:")
         print(f"   Predicciones recibidas: {stats['predictions_received']}")

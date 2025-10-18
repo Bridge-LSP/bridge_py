@@ -38,7 +38,6 @@ class UltraFastRealtimeServer:
                 frame_start = time.time()
                 
                 try:
-                    # Decodificar frame
                     frame_data = base64.b64decode(message)
                     np_arr = np.frombuffer(frame_data, np.uint8)
                     image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
@@ -46,11 +45,9 @@ class UltraFastRealtimeServer:
                     if image is None:
                         continue
                     
-                    # Convertir y procesar
                     rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                     mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_image)
                     
-                    # Detección ultra-rápida
                     results = self.landmarker.detect(mp_image)
                     
                     response = {
@@ -59,14 +56,12 @@ class UltraFastRealtimeServer:
                         "frame_id": self.processed_frames
                     }
                     
-                    # Procesar manos detectadas
                     if results.hand_world_landmarks:
                         for idx, landmarks in enumerate(results.hand_world_landmarks):
                             features = extract_features(landmarks)
                             prediction = self.model.predict(features)[0]
                             confidence = float(max(self.model.predict_proba(features)[0]))
                             
-                            # Solo predicciones confiables para conversación fluida
                             if confidence > 0.8:
                                 response["predictions"].append({
                                     "letter": prediction,
@@ -74,18 +69,15 @@ class UltraFastRealtimeServer:
                                     "handedness": results.handedness[idx][0].category_name.lower()
                                 })
                     
-                    # Calcular métricas de rendimiento
                     processing_time = (time.time() - frame_start) * 1000
                     response["processing_time_ms"] = round(processing_time, 2)
                     
-                    # Estadísticas del servidor
                     self.processed_frames += 1
                     if self.processed_frames % 100 == 0:
                         uptime = time.time() - self.start_time
                         fps = self.processed_frames / uptime
                         print(f"📊 Frames procesados: {self.processed_frames} | FPS promedio: {fps:.1f}")
                     
-                    # Enviar respuesta
                     await websocket.send(json.dumps(response))
                     
                 except Exception as e:
@@ -102,7 +94,6 @@ class UltraFastRealtimeServer:
         finally:
             await self.unregister_client(websocket)
 
-# Instancia global del servidor
 server_instance = UltraFastRealtimeServer()
 
 async def main():
@@ -114,12 +105,11 @@ async def main():
     print(f"🌐 Iniciando servidor en ws://{args.host}:{args.port}")
     print("🚀 Optimizado para LSP conversacional - Latencia < 50ms")
     
-    # Iniciar servidor WebSocket
     start_server = websockets.serve(
         server_instance.process_detection_ultra_fast, 
         args.host, 
         args.port,
-        max_size=10**7,  # 10MB max message size para imágenes
+        max_size=10**7,
         ping_interval=20,
         ping_timeout=10
     )
@@ -127,8 +117,7 @@ async def main():
     await start_server
     print(f"✅ Servidor activo y esperando conexiones...")
     
-    # Mantener servidor corriendo
-    await asyncio.Future()  # Run forever
+    await asyncio.Future()
 
 if __name__ == "__main__":
     try:
