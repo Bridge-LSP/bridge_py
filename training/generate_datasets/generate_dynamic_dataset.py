@@ -4,19 +4,14 @@ import mediapipe as mp
 import numpy as np
 import json
 
-# === RUTAS Y PARÁMETROS DE CONFIGURACIÓN ===
 RAW_VIDEO_DIR = 'training/dataset_multimedia/dataset_dynamic'
 SEQUENCE_DIR = 'dataset_bridge/landmarks_dynamic'
-SEQUENCE_LENGTH = 30 
+SEQUENCE_LENGTH = 30
 
 mp_hands = mp.solutions.hands
 
-# === EXTRACCIÓN DE SECUENCIA DE LANDMARKS DESDE UN VIDEO ===
 def extract_landmark_sequence(video_path, sequence_length=SEQUENCE_LENGTH):
-    """
-    Extrae una secuencia de landmarks 3D (x, y, z) de un video con una sola mano.
-    Devuelve una lista con longitud igual a `sequence_length`.
-    """
+
     cap = cv2.VideoCapture(video_path)
     sequence = []
 
@@ -41,18 +36,13 @@ def extract_landmark_sequence(video_path, sequence_length=SEQUENCE_LENGTH):
 
     cap.release()
 
-    # Rellenar con ceros si hay menos de `sequence_length` frames
     while len(sequence) < sequence_length:
         sequence.append([0.0] * 63)
 
     return sequence
 
-# === PROCESAMIENTO DE TODOS LOS VIDEOS EN LA CARPETA ===
 def process_all_videos():
-    """
-    Procesa todos los videos MP4 del directorio RAW_VIDEO_DIR,
-    genera la secuencia de landmarks y la guarda en formato JSON en SEQUENCE_DIR.
-    """
+
     os.makedirs(SEQUENCE_DIR, exist_ok=True)
 
     for root, dirs, files in os.walk(RAW_VIDEO_DIR):

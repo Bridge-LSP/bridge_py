@@ -24,7 +24,7 @@ if os.name == 'nt':
         pass
 
 MODEL_MODE = "rf"
-AUTO_TRANSLATE_TO = None #cambiar para traducir
+AUTO_TRANSLATE_TO = None
 
 MODEL_PATH = 'models/forest_model_u.pkl'
 svm_model = joblib.load(MODEL_PATH)
@@ -66,9 +66,8 @@ COOLDOWN_TIME = 1.0
 PAUSE_THRESHOLD = 2.0
 PHRASE_TIMEOUT = 5.0
 
-# 🎤 CONFIGURACIÓN TTS
-TTS_ENABLED = True  # ⭐ NUEVA: Activar/desactivar TTS
-TTS_AUTO_PLAY = True  # ⭐ NUEVA: Reproducir automáticamente al completar frase
+TTS_ENABLED = True
+TTS_AUTO_PLAY = True
 
 def extract_features(landmarks):
     return np.array([[lm.x, lm.y, lm.z] for lm in landmarks]).flatten().reshape(1, -1)
@@ -89,14 +88,13 @@ def draw_interface(frame):
     panel_height = 420
     cv2.rectangle(frame, (10, 10), (frame_width - 10, panel_height), (250, 250, 250), -1)
     cv2.rectangle(frame, (10, 10), (frame_width - 10, panel_height), (80, 80, 80), 3)
-    
+
     frame = draw_unicode_text(frame, " BRIDGE - Sistema de Traducción LSP", (20, 35), font_size=28, color=(50, 50, 50))
-    
+
     frame = draw_unicode_text(frame, "- Detección:", (20, 75), font_size=20, color=(80, 80, 80))
     frame = draw_unicode_text(frame, f"Detectando: {raw_word if raw_word else ''}", (40, 100), font_size=22, color=(120, 120, 120))
     frame = draw_unicode_text(frame, f"Corrigiendo: {corrected_word if corrected_word else ''}", (40, 125), font_size=22, color=(0, 140, 0))
-    
-    # === MOSTRAR ESTADO DE LA FRASE ===
+
     if sentence_completed and completed_sentence:
         frame = draw_unicode_text(frame, "- Frase Completada:", (20, 165), font_size=20, color=(0, 150, 0))
         frase_display = sentence_text
@@ -111,14 +109,14 @@ def draw_interface(frame):
 
         if translated_sentence and AUTO_TRANSLATE_TO:
             lang_names = {
-                "ar": "العربية", "bg": "Български", "cs": "Čeština", "da": "Dansk", 
+                "ar": "العربية", "bg": "Български", "cs": "Čeština", "da": "Dansk",
                 "de": "Deutsch", "el": "Ελληνικά", "en": "English", "et": "Eesti",
                 "fi": "Suomi", "fr": "Français", "he": "עברית", "hu": "Magyar",
                 "id": "Bahasa Indonesia", "it": "Italiano", "ja": "日本語", "ko": "한국어",
                 "lt": "Lietuvių", "lv": "Latviešu", "nb": "Norsk", "nl": "Nederlands",
                 "pl": "Polski", "pt": "Português", "ro": "Română", "ru": "Русский",
                 "sk": "Slovenčina", "sl": "Slovenščina", "sv": "Svenska", "th": "ไทย",
-                "tr": "Türkçe", "uk": "Українська", "vi": "Tiếng Việt", 
+                "tr": "Türkçe", "uk": "Українська", "vi": "Tiếng Việt",
                 "zh": "中文", "zh-hans": "中文简体", "zh-hant": "中文繁體"
             }
             lang_display = lang_names.get(translated_lang, translated_lang.upper())
@@ -126,14 +124,14 @@ def draw_interface(frame):
             frame = draw_unicode_text(frame, translation_text, (40, 260), font_size=24, color=(0, 100, 255))
         elif translated_sentence:
             lang_names = {
-                "ar": "العربية", "bg": "Български", "cs": "Čeština", "da": "Dansk", 
+                "ar": "العربية", "bg": "Български", "cs": "Čeština", "da": "Dansk",
                 "de": "Deutsch", "el": "Ελληνικά", "en": "English", "et": "Eesti",
                 "fi": "Suomi", "fr": "Français", "he": "עברית", "hu": "Magyar",
                 "id": "Bahasa Indonesia", "it": "Italiano", "ja": "日本語", "ko": "한국어",
                 "lt": "Lietuvių", "lv": "Latviešu", "nb": "Norsk", "nl": "Nederlands",
                 "pl": "Polski", "pt": "Português", "ro": "Română", "ru": "Русский",
                 "sk": "Slovenčina", "sl": "Slovenščina", "sv": "Svenska", "th": "ไทย",
-                "tr": "Türkçe", "uk": "Українська", "vi": "Tiếng Việt", 
+                "tr": "Türkçe", "uk": "Українська", "vi": "Tiếng Việt",
                 "zh": "中文", "zh-hans": "中文简体", "zh-hant": "中文繁體"
             }
             lang_display = lang_names.get(translated_lang, translated_lang.upper())
@@ -141,14 +139,14 @@ def draw_interface(frame):
             frame = draw_unicode_text(frame, translation_text, (40, 260), font_size=24, color=(0, 100, 255))
         elif AUTO_TRANSLATE_TO:
             lang_names = {
-                "ar": "العربية", "bg": "Български", "cs": "Čeština", "da": "Dansk", 
+                "ar": "العربية", "bg": "Български", "cs": "Čeština", "da": "Dansk",
                 "de": "Deutsch", "el": "Ελληνικά", "en": "English", "et": "Eesti",
                 "fi": "Suomi", "fr": "Français", "he": "عברית", "hu": "Magyar",
                 "id": "Bahasa Indonesia", "it": "Italiano", "ja": "日本語", "ko": "한국어",
                 "lt": "Lietuvių", "lv": "Latviešu", "nb": "Norsk", "nl": "Nederlands",
                 "pl": "Polski", "pt": "Português", "ro": "Română", "ru": "Русский",
                 "sk": "Slovenčina", "sl": "Slovenščina", "sv": "Svenska", "th": "ไทย",
-                "tr": "Türkçe", "uk": "Українська", "vi": "Tiếng Việt", 
+                "tr": "Türkçe", "uk": "Українська", "vi": "Tiếng Việt",
                 "zh": "中文", "zh-hans": "中文简体", "zh-hant": "中文繁體"
             }
             lang_display = lang_names.get(AUTO_TRANSLATE_TO, AUTO_TRANSLATE_TO.upper())
@@ -184,11 +182,11 @@ def draw_interface(frame):
         letter_size = 120
         letter_x = frame_width - letter_size - 20
         letter_y = frame_height - letter_size - 20
-        
+
         cv2.rectangle(frame, (letter_x + 5, letter_y + 5), (letter_x + letter_size + 5, letter_y + letter_size + 5), (100, 100, 100), -1)
         cv2.rectangle(frame, (letter_x, letter_y), (letter_x + letter_size, letter_y + letter_size), (255, 255, 255), -1)
         cv2.rectangle(frame, (letter_x, letter_y), (letter_x + letter_size, letter_y + letter_size), (0, 0, 0), 3)
-        
+
         cv2.putText(frame, letra_actual, (letter_x + 25, letter_y + 80), cv2.FONT_HERSHEY_SIMPLEX, 2.5, (0, 0, 0), 4)
 
     return frame
@@ -283,44 +281,39 @@ def complete_sentence():
         sentence_completed = True
         phrase_active = False
         print(f"✅ Frase completada: {final_sentence}")
-        
-        # ⭐ NUEVA FUNCIONALIDAD: TTS AUTOMÁTICO
+
         if TTS_ENABLED and TTS_AUTO_PLAY:
             if AUTO_TRANSLATE_TO and translated_sentence:
-                # Reproducir traducción si está disponible
                 bridge_tts.speak_sentence_completion(translated_sentence, AUTO_TRANSLATE_TO)
                 print(f"🔊 Reproduciendo traducción en {AUTO_TRANSLATE_TO}")
             else:
-                # Reproducir frase original en español
                 bridge_tts.speak_sentence_completion(final_sentence, 'es')
                 print(f"🔊 Reproduciendo frase en español")
-        
-        # Traducción automática (existente)
+
         if AUTO_TRANSLATE_TO:
             translated = translate_text(final_sentence, AUTO_TRANSLATE_TO)
             if translated:
                 translated_sentence = translated
                 translated_lang = AUTO_TRANSLATE_TO
                 lang_names = {
-                    "ar": "العربية", "bg": "Български", "cs": "Čeština", "da": "Dansk", 
+                    "ar": "العربية", "bg": "Български", "cs": "Čeština", "da": "Dansk",
                     "de": "Deutsch", "el": "Ελληνικά", "en": "English", "et": "Eesti",
                     "fi": "Suomi", "fr": "Français", "he": "עברית", "hu": "Magyar",
                     "id": "Bahasa Indonesia", "it": "Italiano", "ja": "日本語", "ko": "한국어",
                     "lt": "Lietuvių", "lv": "Latviešu", "nb": "Norsk", "nl": "Nederlands",
                     "pl": "Polski", "pt": "Português", "ro": "Română", "ru": "Русский",
                     "sk": "Slovenčina", "sl": "Slovenščina", "sv": "Svenska", "th": "ไทy",
-                    "tr": "Türkçe", "uk": "Українська", "vi": "Tiếng Việt", 
+                    "tr": "Türkçe", "uk": "Українська", "vi": "Tiếng Việt",
                     "zh": "中文", "zh-hans": "中文简体", "zh-hant": "中文繁體"
                 }
                 print(f"✅ Traducción automática ({lang_names.get(AUTO_TRANSLATE_TO, AUTO_TRANSLATE_TO)}): {translated}")
-                
-                # ⭐ REPRODUCIR TRADUCCIÓN SI TTS ESTÁ ACTIVADO Y NO SE REPRODUJO ANTES
+
                 if TTS_ENABLED and TTS_AUTO_PLAY:
                     bridge_tts.speak_sentence_completion(translated, AUTO_TRANSLATE_TO)
                     print(f"🔊 Reproduciendo traducción en {AUTO_TRANSLATE_TO}")
-    
+
     return final_sentence
- 
+
 def main():
     global last_prediction, last_time, last_letter_time, letra_actual
     global word_finalized, feedback_mode, phrase_active, sentence_completed
@@ -334,14 +327,14 @@ def main():
     print(f"🚀 Sistema iniciado (Modo: {MODEL_MODE.upper()})")
     if AUTO_TRANSLATE_TO:
         lang_names = {
-            "ar": "العربية", "bg": "Български", "cs": "Čeština", "da": "Dansk", 
+            "ar": "العربية", "bg": "Български", "cs": "Čeština", "da": "Dansk",
             "de": "Deutsch", "el": "Ελληνικά", "en": "English", "et": "Eesti",
             "fi": "Suomi", "fr": "Français", "he": "עברית", "hu": "Magyar",
             "id": "Bahasa Indonesia", "it": "Italiano", "ja": "日本語", "ko": "한국어",
             "lt": "Lietuvių", "lv": "Latviešu", "nb": "Norsk", "nl": "Nederlands",
             "pl": "Polski", "pt": "Português", "ro": "Română", "ru": "Русский",
             "sk": "Slovenčina", "sl": "Slovenščina", "sv": "Svenska", "th": "ไทย",
-            "tr": "Türkçe", "uk": "Українська", "vi": "Tiếng Việt", 
+            "tr": "Türkçe", "uk": "Українська", "vi": "Tiếng Việt",
             "zh": "中文", "zh-hans": "中文简体", "zh-hant": "中文繁體"
         }
         print(f"🌐 Traducción automática activada a: {lang_names.get(AUTO_TRANSLATE_TO, AUTO_TRANSLATE_TO.upper())}")
@@ -365,7 +358,7 @@ def main():
                 frame_features = [coord for point in landmarks for coord in (point.x, point.y, point.z)]
                 lstm_buffer.append(frame_features)
 
-        if (MODEL_MODE in ("lstm", "both") and lstm_model and lstm_buffer and 
+        if (MODEL_MODE in ("lstm", "both") and lstm_model and lstm_buffer and
             len(lstm_buffer) == lstm_buffer.maxlen and not feedback_mode):
             seq = np.array(lstm_buffer)
             pred = lstm_model.predict(np.expand_dims(seq, axis=0), verbose=0)
@@ -408,12 +401,12 @@ def main():
                     detected = True
                     print(f"✅ Letra: {letra_actual}")
 
-        if (phrase_active and not feedback_mode and autocorrector.sentence_words and 
+        if (phrase_active and not feedback_mode and autocorrector.sentence_words and
             (current_time - last_letter_time > PHRASE_TIMEOUT)):
             print("⏰ No se detectaron señas por 5 segundos. Fin de frase automático.")
             complete_sentence()
 
-        if (not detected and autocorrector.word_buffer and 
+        if (not detected and autocorrector.word_buffer and
             current_time - last_letter_time > PAUSE_THRESHOLD and not word_finalized and not feedback_mode):
             word = autocorrector.finish_word()
             if word.strip():
@@ -426,12 +419,10 @@ def main():
 
         key = cv2.waitKey(5) & 0xFF
         if key == ord("q"):
-            # ⭐ DETENER AUDIO AL SALIR
             if TTS_ENABLED:
                 bridge_tts.stop_current_audio()
             break
         elif key == ord("r"):
-            # ⭐ DETENER AUDIO AL REINICIAR
             if TTS_ENABLED:
                 bridge_tts.stop_current_audio()
             autocorrector.clear_buffer()
@@ -440,12 +431,11 @@ def main():
             word_finalized, feedback_mode, phrase_active = False, False, False
             clear_completed_sentence()
             print("🔄 Sistema reiniciado completamente")
-        # ⭐ NUEVOS CONTROLES TTS
-        elif key == ord("s"):  # S = Stop audio
+        elif key == ord("s"):
             if TTS_ENABLED:
                 bridge_tts.stop_current_audio()
                 print("🛑 Audio detenido manualmente")
-        elif key == ord("p"):  # P = Play/repeat last sentence
+        elif key == ord("p"):
             if TTS_ENABLED and (completed_sentence or translated_sentence):
                 text_to_play = translated_sentence if translated_sentence else completed_sentence
                 lang_to_use = translated_lang if translated_sentence else 'es'

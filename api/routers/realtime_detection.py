@@ -15,7 +15,6 @@ from api.services.hand_detection import extract_features
 from engine_bridge.text_to_speech import bridge_tts
 import mediapipe as mp
 
-# Configuration constants
 CONFIDENCE_THRESHOLD = 0.70
 FRAME_MIN_INTERVAL_MS = 200
 MAX_INFLIGHT_FRAMES = 1
@@ -27,10 +26,9 @@ HEARTBEAT_TIMEOUT_SECONDS = 20
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# Global session storage
-SESSIONS = {}   # session_id -> SessionState
-PREFS = {}      # session_id -> UserPreferences
-WS_CONNECTIONS = {}  # client_id -> {"websocket": ws, "last_pong": timestamp, "heartbeat_task": task}
+SESSIONS = {}
+PREFS = {}
+WS_CONNECTIONS = {}
 
 class SessionState:
     def __init__(self):
@@ -40,10 +38,10 @@ class SessionState:
         self.sentence_so_far = ""
         self.last_activity = time.time()
         self.is_building_word = False
-        
+
     def has_words(self):
         return len(self.sentence_words) > 0 or self.current_word != ""
-    
+
     def reset_for_new_sentence(self):
         self.letters_buffer = []
         self.current_word = ""
@@ -75,20 +73,17 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 async def heartbeat_monitor(websocket: WebSocket, client_id: str):
-    """Monitor heartbeat for WebSocket connection"""
+
     try:
         while True:
             await asyncio.sleep(HEARTBEAT_INTERVAL_SECONDS)
-            
-            # Send ping
+
             await websocket.send_json({"type": "ping"})
             logger.debug(f"[WS] ping sent to {client_id}")
-            
-            # Update last ping time
+
             if client_id in WS_CONNECTIONS:
                 WS_CONNECTIONS[client_id]["last_ping"] = time.time()
-            
-            # Check for pong timeout
+
             if client_id in WS_CONNECTIONS:
                 conn_info = WS_CONNECTIONS[client_id]
                 last_pong = conn_info.get("last_pong", time.time())
@@ -96,20 +91,20 @@ async def heartbeat_monitor(websocket: WebSocket, client_id: str):
                     logger.warning(f"[WS] client {client_id} inactive >{HEARTBEAT_TIMEOUT_SECONDS}s — closing connection")
                     await websocket.close(code=1001, reason="Heartbeat timeout")
                     break
-                    
+
     except asyncio.CancelledError:
         logger.debug(f"[WS] heartbeat monitor cancelled for {client_id}")
     except Exception as e:
         logger.error(f"[WS] heartbeat monitor error for {client_id}: {e}")
 
 def handle_pong_message(client_id: str):
-    """Handle pong response from client"""
+
     if client_id in WS_CONNECTIONS:
         WS_CONNECTIONS[client_id]["last_pong"] = time.time()
         logger.debug(f"[WS] pong received from {client_id}")
 
 def cleanup_connection(client_id: str):
-    """Clean up connection resources"""
+
     if client_id in WS_CONNECTIONS:
         conn_info = WS_CONNECTIONS[client_id]
         if "heartbeat_task" in conn_info and conn_info["heartbeat_task"]:
@@ -122,23 +117,22 @@ async def create_session(
     req: SessionCreateRequest,
     x_client_token: Optional[str] = Header(None)
 ):
-    """Create session with anonymous support and optional client tracking"""
+
     try:
         sid = req.session_id or str(uuid.uuid4())
         if sid not in SESSIONS:
             SESSIONS[sid] = SessionState()
             PREFS[sid] = UserPreferences(sid)
-            
-            # Store client token if provided
+
             if x_client_token:
                 PREFS[sid].client_token = x_client_token
-            
+
             logger.info(f"[Bridge] Session created: {sid}")
-        
+
         return {
             "status": "success",
             "data": {
-                "message": "Session created successfully", 
+                "message": "Session created successfully",
                 "session_id": sid
             }
         }
@@ -151,7 +145,7 @@ async def create_session(
 
 @router.websocket("/ws/echo")
 async def echo_ws(websocket: WebSocket):
-    """WebSocket echo endpoint for debugging"""
+
     await websocket.accept()
     print("[WS/echo] Connected")
     try:
@@ -166,25 +160,25 @@ async def echo_ws(websocket: WebSocket):
 
 @router.post("/detect")
 async def detect_fallback(req: DetectRequest):
-    """HTTP fallback for frame detection"""
+
     try:
         t0 = time.time()
         img_bytes = base64.b64decode(req.frameBase64, validate=True)
         logger.debug(f"[HTTP/detect] Frame bytes={len(img_bytes)}")
-        
+
         image = decode_image(img_bytes)
         if image is None:
             return {
                 "status": "error",
                 "detail": "Invalid image format"
             }
-            
+
         pred = run_mediapipe_and_get_top_prediction(image)
         latency_ms = int((time.time() - t0) * 1000)
-        
+
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"[HTTP/detect] Latency={latency_ms}ms")
-        
+
         if not pred or pred["confidence"] < CONFIDENCE_THRESHOLD:
             return {
                 "status": "success",
@@ -193,7 +187,7 @@ async def detect_fallback(req: DetectRequest):
                     "latency_ms": latency_ms
                 }
             }
-            
+
         return {
             "status": "success",
             "data": {
@@ -201,7 +195,7 @@ async def detect_fallback(req: DetectRequest):
                 "latency_ms": latency_ms
             }
         }
-        
+
     except Exception as e:
         logger.error(f"[HTTP/detect] Error: {e}")
         return {
@@ -211,48 +205,42 @@ async def detect_fallback(req: DetectRequest):
 
 @router.websocket("/ws/detection/{client_id}")
 async def detection_ws(websocket: WebSocket, client_id: str):
-    """Hardened real-time detection WebSocket with backpressure, throttling, and heartbeat"""
+
     await websocket.accept()
     logger.info(f"[WS/detection] Connected: {client_id}")
-    
-    # Initialize connection tracking
+
     WS_CONNECTIONS[client_id] = {
         "websocket": websocket,
         "last_pong": time.time(),
         "last_ping": time.time()
     }
-    
-    # Map client to session (simple 1:1 mapping for now)
+
     session_id = map_client_to_session(client_id)
     if session_id not in SESSIONS:
         SESSIONS[session_id] = SessionState()
         PREFS[session_id] = UserPreferences(session_id)
-    
+
     inflight = 0
     last_ts_ms = 0
     lock = asyncio.Lock()
-    
+
     async def dec_inflight():
         nonlocal inflight
         async with lock:
             inflight = max(0, inflight - 1)
-    
-    # Start heartbeat monitor
+
     heartbeat_task = asyncio.create_task(heartbeat_monitor(websocket, client_id))
     WS_CONNECTIONS[client_id]["heartbeat_task"] = heartbeat_task
-    
-    # Start phrase idle watchdog
+
     idle_task = asyncio.create_task(_phrase_idle_watchdog(websocket, session_id))
-    
+
     try:
         while True:
             msg = await websocket.receive()
-            
-            # Handle text messages (JSON commands or base64)
+
             if msg.get("type") == "websocket.receive" and "text" in msg:
                 raw = msg["text"]
-                
-                # Try parsing as JSON command first
+
                 try:
                     json_msg = json.loads(raw)
                     if json_msg.get("type") == "pong":
@@ -261,45 +249,37 @@ async def detection_ws(websocket: WebSocket, client_id: str):
                     elif json_msg.get("type") == "frame":
                         b64 = json_msg.get("data", "")
                     else:
-                        # Unknown JSON message type
                         continue
                 except json.JSONDecodeError:
-                    # Assume raw base64
                     b64 = raw
-                    
+
             elif msg.get("type") == "websocket.receive" and "bytes" in msg:
                 b64 = base64.b64encode(msg["bytes"]).decode("ascii")
             else:
                 continue
-            
+
             if not b64:
                 continue
-                
-            # Throttling check
+
             now = int(time.time() * 1000)
             if now - last_ts_ms < FRAME_MIN_INTERVAL_MS:
-                # Drop frame - throttling
                 continue
-                
-            # Backpressure check
+
             async with lock:
                 if inflight >= MAX_INFLIGHT_FRAMES:
-                    # Drop frame - backpressure
                     continue
                 inflight += 1
-            
+
             last_ts_ms = now
-            
-            # Process frame asynchronously
+
             asyncio.create_task(_process_frame_and_emit(websocket, session_id, b64, dec_inflight))
-            
+
     except WebSocketDisconnect:
         logger.info(f"[WS/detection] Disconnected: {client_id}")
     except Exception as e:
         logger.error(f"[WS/detection] Error for {client_id}: {e}")
         await _safe_send_json(websocket, {"type": "error", "message": str(e)})
     finally:
-        # Clean up tasks and connection
         if heartbeat_task:
             heartbeat_task.cancel()
         if idle_task:
@@ -307,15 +287,14 @@ async def detection_ws(websocket: WebSocket, client_id: str):
         cleanup_connection(client_id)
 
 def map_client_to_session(client_id: str) -> str:
-    """Simple 1:1 mapping of client_id to session_id"""
+
     return client_id
 
 def extract_base64_from_message(raw: str) -> str:
-    """Extract base64 data from raw WebSocket message"""
+
     if not raw:
         return ""
-        
-    # Try parsing as JSON first
+
     if raw.startswith("{"):
         try:
             obj = json.loads(raw)
@@ -324,12 +303,11 @@ def extract_base64_from_message(raw: str) -> str:
             return ""
         except:
             pass
-    
-    # Assume raw base64
+
     return raw
 
 def decode_image(img_bytes: bytes):
-    """Decode image bytes using OpenCV"""
+
     try:
         np_arr = np.frombuffer(img_bytes, np.uint8)
         image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
@@ -339,140 +317,126 @@ def decode_image(img_bytes: bytes):
         return None
 
 def run_mediapipe_and_get_top_prediction(image):
-    """Run MediaPipe and get top prediction"""
+
     try:
         if image is None:
             return None
-            
+
         rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_image)
-        
+
         results = manager.landmarker.detect(mp_image)
-        
+
         if results.hand_world_landmarks and results.handedness:
             landmarks = results.hand_world_landmarks[0]
             features = extract_features(landmarks)
-            
+
             prediction = manager.model.predict(features)[0]
             probabilities = manager.model.predict_proba(features)[0]
             confidence = float(max(probabilities))
-            
+
             return {
                 "letter": prediction,
                 "confidence": confidence
             }
-            
+
         return None
-        
+
     except Exception as e:
         print(f"[mediapipe] Error: {e}")
         return None
 
 def update_word_buffers(session_id: str, letter: str):
-    """Update session word buffers and return (word_updated, word_finalized)"""
+
     session = SESSIONS[session_id]
-    
-    # Add letter to buffer
+
     session.letters_buffer.append(letter)
     session.current_word = "".join(session.letters_buffer)
     session.is_building_word = True
-    
-    # Simple word completion logic (you can enhance this)
+
     word_finalized = False
-    if len(session.letters_buffer) >= 4:  # Auto-finish after 4 letters
+    if len(session.letters_buffer) >= 4:
         word_finalized = True
         session.sentence_words.append(session.current_word)
         session.sentence_so_far = " ".join(session.sentence_words)
         session.letters_buffer = []
         session.current_word = ""
         session.is_building_word = False
-    
-    return True, word_finalized  # word_updated=True, word_finalized=bool
+
+    return True, word_finalized
 
 def bert_correct(word: str, context: str) -> str:
-    """Simple BERT correction placeholder"""
-    # For now, return the word as-is
-    # You can integrate your BERT correction logic here
+
     return word
 
 def complete_phrase(session_id: str) -> str:
-    """Complete current phrase and return it"""
+
     session = SESSIONS[session_id]
-    
-    # Finalize current word if building
+
     if session.is_building_word and session.current_word:
         session.sentence_words.append(session.current_word)
         session.current_word = ""
         session.is_building_word = False
-    
+
     phrase = " ".join(session.sentence_words)
     return phrase
 
 def generate_tts(text: str, language: str) -> str:
-    """Generate TTS and return base64 audio"""
+
     try:
-        # Simple TTS generation - you can enhance this
-        # For now, return empty string as placeholder
         return ""
     except Exception as e:
         print(f"[TTS] Error: {e}")
         return ""
 
 async def _process_frame_and_emit(ws: WebSocket, session_id: str, b64: str, done_cb):
-    """Process frame and emit detection events with timer management"""
+
     t0 = time.time()
-    frame_id = int(t0 * 1000) % 100000  # Simple frame ID
-    
+    frame_id = int(t0 * 1000) % 100000
+
     try:
         img_bytes = base64.b64decode(b64, validate=True)
         logger.debug(f"[WS/process] Frame {frame_id} bytes={len(img_bytes)}")
-        
+
         image = decode_image(img_bytes)
         if image is None:
             await _safe_send_json(ws, {"type": "error", "message": "Imagen inválida"})
             return
-            
+
         pred = run_mediapipe_and_get_top_prediction(image)
-        
+
         if pred and pred["confidence"] >= CONFIDENCE_THRESHOLD:
             letter = pred["letter"]
             SESSIONS[session_id].last_activity = time.time()
-            
-            # Usar el nuevo endpoint con timers automáticos
+
             from api.services.timer_manager_service import timer_manager_service
-            
-            # Agregar letra con gestión automática de timers
+
             result = timer_manager_service.autocorrector_service.add_letter(session_id, letter)
             if "error" not in result:
-                # Resetear y iniciar timers (idéntico a main.py)
                 timer_manager_service.reset_timers(session_id)
                 timer_manager_service.start_word_timer(session_id)
-                
-                # Emit letter added event
+
                 await _safe_send_json(ws, {
                     "type": "letter_added",
                     "letter": letter.upper(),
                     "confidence": pred["confidence"],
                     "word_timer_started": True
                 })
-                
-                # Emit word updated event
+
                 await _safe_send_json(ws, {
-                    "type": "word_updated", 
+                    "type": "word_updated",
                     "word": result["current_buffer"].upper()
                 })
-                
-                # Performance logging
+
                 latency_ms = int((time.time() - t0) * 1000)
                 if logger.isEnabledFor(logging.DEBUG):
                     logger.debug(f"[Detect] Frame {frame_id} | latency={latency_ms}ms | confidence={pred['confidence']:.2f} | letter={letter.upper()}")
         else:
-            # No detection - mantener timers corriendo
             latency_ms = int((time.time() - t0) * 1000)
             if logger.isEnabledFor(logging.DEBUG):
                 confidence = pred['confidence'] if pred else None
                 logger.debug(f"[Detect] Frame {frame_id} | latency={latency_ms}ms | no detection (conf: {confidence})")
-        
+
     except Exception as e:
         logger.error(f"[WS/process] Frame {frame_id} error: {e}")
         await _safe_send_json(ws, {"type": "error", "message": str(e)})
@@ -480,33 +444,31 @@ async def _process_frame_and_emit(ws: WebSocket, session_id: str, b64: str, done
         await done_cb()
 
 async def _phrase_idle_watchdog(ws: WebSocket, session_id: str):
-    """Monitor for phrase idle timeout and auto-complete phrases"""
+
     while True:
         try:
             await asyncio.sleep(1)
-            
+
             if session_id not in SESSIONS:
                 continue
-                
+
             session = SESSIONS[session_id]
             idle_time = time.time() - session.last_activity
-            
+
             if idle_time >= PHRASE_IDLE_SECONDS and session.has_words():
                 phrase_start_time = time.time()
-                
+
                 phrase = complete_phrase(session_id)
                 if phrase.strip():
                     await _safe_send_json(ws, {
                         "type": "phrase_updated",
                         "phrase": phrase
                     })
-                    
-                    # Performance logging for phrase completion
+
                     completion_time = time.time() - phrase_start_time
                     if logger.isEnabledFor(logging.DEBUG):
                         logger.debug(f'[Phrase] Auto-finished in {idle_time:.1f}s | phrase="{phrase}" | processing={completion_time*1000:.0f}ms')
-                    
-                    # Generate TTS if enabled
+
                     prefs = PREFS.get(session_id, UserPreferences(session_id))
                     if prefs.tts_enabled:
                         tts_b64 = generate_tts(phrase, prefs.voice_language)
@@ -516,10 +478,9 @@ async def _phrase_idle_watchdog(ws: WebSocket, session_id: str):
                                 "audioBase64": tts_b64,
                                 "lang": prefs.voice_language
                             })
-                    
-                    # Reset for new sentence
+
                     session.reset_for_new_sentence()
-                    
+
         except asyncio.CancelledError:
             logger.debug(f"[WS/idle] Watchdog cancelled for session {session_id}")
             break
@@ -527,7 +488,7 @@ async def _phrase_idle_watchdog(ws: WebSocket, session_id: str):
             logger.error(f"[WS/idle] Watchdog error for {session_id}: {e}")
 
 async def _safe_send_json(ws: WebSocket, payload: dict):
-    """Safely send JSON over WebSocket"""
+
     try:
         await ws.send_json(payload)
     except Exception as e:
@@ -535,7 +496,7 @@ async def _safe_send_json(ws: WebSocket, payload: dict):
 
 @router.get("/ws/status")
 async def ws_status():
-    """Get WebSocket connection status"""
+
     return {
         "status": "success",
         "data": {

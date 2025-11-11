@@ -5,7 +5,6 @@ import time
 from .autocorrector_storage import AutoCorrectorStorage
 from .autocorrector_analytics import AutoCorrectorAnalytics
 
-# === CLASE PRINCIPAL DEL AUTOCORRECTOR ===
 class AutoCorrector:
     def __init__(self, learning_file="dataset_bridge/dataset_bert.json"):
         self.spell = SpellChecker(language='es')
@@ -14,7 +13,6 @@ class AutoCorrector:
         self._load_bert_model()
         self._reset_session()
 
-    # === CARGA DEL MODELO BERT ===
     def _load_bert_model(self):
         try:
             print("🔄 Cargando modelo BERT...")
@@ -28,7 +26,6 @@ class AutoCorrector:
             print(f"⚠️ Error al cargar modelo BERT: {e}")
             self.model_loaded = False
 
-    # === INTERFAZ PÚBLICA PARA DETECCIÓN DE PALABRAS ===
     def add_letter(self, letter):
         self.word_buffer.append(letter)
 
@@ -65,7 +62,6 @@ class AutoCorrector:
         self._reset_session()
         return sentence
 
-    # === RETROALIMENTACIÓN Y EDICIÓN ===
     def provide_feedback_for_word(self, index, correct_word):
         if 0 <= index < len(self.words_feedback):
             word_info = self.words_feedback[index]
@@ -96,7 +92,6 @@ class AutoCorrector:
         self.word_buffer.clear()
         print("🧹 Buffer limpiado")
 
-    # === CORRECCIÓN ORTOGRÁFICA Y CONTEXTUAL ===
     def _correct_word(self, word, context):
         if not word or len(word) < 2:
             return word
@@ -115,7 +110,6 @@ class AutoCorrector:
 
         return word
 
-    # === SESIÓN DE CORRECCIÓN ===
     def _start_session(self):
         self.session_start_time = time.time()
         self.corrections_made_in_session = 0
@@ -141,7 +135,6 @@ class AutoCorrector:
         self.session_start_time = None
         self.corrections_made_in_session = 0
 
-    # === PROPIEDADES Y CONSULTAS ===
     @property
     def sentence_feedback_requested(self):
         return self.storage.pending_sentence_confirmation is not None
@@ -160,7 +153,6 @@ class AutoCorrector:
     def get_sentence_words(self):
         return list(enumerate(self.sentence_words))
 
-    # === MÉTRICAS Y REPORTES ===
     def get_stats(self):
         return self.analytics.get_learning_stats()
 
@@ -187,8 +179,6 @@ class AutoCorrector:
 
     def get_bert_training_suggestions(self):
         return self.analytics.get_bert_training_suggestions()
-
-    # === FUNCIONES AUXILIARES PRIVADAS ===
 
     def _avg(self, key):
         records = self.storage.successful_sentences

@@ -10,7 +10,7 @@ router = APIRouter()
     description="Generates TTS audio for complete phrases with user preferences"
 )
 async def generate_audio(request: TTSEnhancedRequest):
-    """Genera audio TTS para frases completas"""
+
     try:
         result = enhanced_tts_service.generate_audio_for_phrase(
             text=request.text,
@@ -19,12 +19,12 @@ async def generate_audio(request: TTSEnhancedRequest):
             voice_speed=request.voice_speed or 1.0,
             voice_pitch=request.voice_pitch or 1.0
         )
-        
+
         if "error" in result:
             raise HTTPException(status_code=400, detail=result["error"])
-        
+
         return result
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -34,16 +34,16 @@ async def generate_audio(request: TTSEnhancedRequest):
     description="Stops the currently playing TTS audio"
 )
 async def stop_audio(payload: dict):
-    """Detiene la reproducción de audio actual"""
+
     try:
         session_id = payload.get("session_id")
         result = enhanced_tts_service.stop_audio(session_id)
-        
+
         if "error" in result:
             raise HTTPException(status_code=400, detail=result["error"])
-        
+
         return result
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -53,14 +53,14 @@ async def stop_audio(payload: dict):
     description="Gets the current status of TTS engine and session"
 )
 async def get_tts_status(session_id: str = None):
-    """Obtiene el estado del motor TTS"""
+
     try:
         result = enhanced_tts_service.get_tts_status(session_id)
-        
+
         if "error" in result:
             raise HTTPException(status_code=400, detail=result["error"])
-        
+
         return result
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

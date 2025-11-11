@@ -5,18 +5,13 @@ import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 
-# === CONFIGURACIÓN GLOBAL ===
 SEQUENCE_DIR = 'dataset_bridge/landmarks_dynamic'
 MODEL_PATH = 'models/lstm_model.h5'
 SEQUENCE_LENGTH = 30
 FEATURES_PER_FRAME = 63
 
-# === FUNCIÓN: Cargar secuencias y etiquetas ===
 def load_sequences():
-    """
-    Recorre subdirectorios de SEQUENCE_DIR y carga secuencias de landmarks.
-    Etiqueta cada clase con un entero y devuelve los datos y el label_map.
-    """
+
     X, y = [], []
     label_map = {}
     label_count = 0
@@ -24,7 +19,7 @@ def load_sequences():
     for root, _, files in os.walk(SEQUENCE_DIR):
         label = os.path.basename(root)
         if label == os.path.basename(SEQUENCE_DIR):
-            continue  # evitar la raíz sin clase
+            continue
 
         if label not in label_map:
             label_map[label] = label_count
@@ -46,12 +41,8 @@ def load_sequences():
 
     return np.array(X), np.array(y), label_map
 
-# === FUNCIÓN: Entrenar el modelo LSTM ===
 def train_lstm():
-    """
-    Entrena un modelo LSTM con las secuencias cargadas.
-    Evalúa el modelo y guarda los resultados.
-    """
+
     X, y, label_map = load_sequences()
 
     if len(X) == 0 or len(y) == 0:
@@ -78,7 +69,6 @@ def train_lstm():
     print(f"\n✅ Modelo LSTM guardado en: {MODEL_PATH}")
     print(f"🗂️ Label map: {label_map}")
 
-    # === EVALUACIÓN ===
     y_pred = model.predict(X_test)
     y_pred_labels = np.argmax(y_pred, axis=1)
     y_true_labels = np.argmax(y_test, axis=1)
@@ -86,6 +76,5 @@ def train_lstm():
     print("\n📈 Reporte de clasificación:")
     print(classification_report(y_true_labels, y_pred_labels))
 
-# === PUNTO DE ENTRADA ===
 if __name__ == "__main__":
     train_lstm()

@@ -2,39 +2,32 @@ import os
 from PIL import Image, ImageEnhance
 import random
 
-# === Configuración ===
 AUGMENT_CLASSES = ['2', '6', 'm', 'n', 'p', 'q', 'w']
 INPUT_FOLDER = 'training/dataset_multimedia/dataset_static'
 OUTPUT_FOLDER = 'training/dataset_multimedia/dataset_static_augmented'
-AUGMENTATIONS_PER_IMAGE = 3  # cuántas imágenes aumentadas por original
+AUGMENTATIONS_PER_IMAGE = 3
 
-# Crear carpeta de salida por clase
 for cls in AUGMENT_CLASSES:
     os.makedirs(os.path.join(OUTPUT_FOLDER, cls), exist_ok=True)
 
-# === Funciones de aumento ===
 def augment_image(img):
     variants = []
 
-    # Rotación
     angle = random.uniform(-15, 15)
     variants.append(img.rotate(angle))
 
-    # Escalado (zoom leve)
     scale = random.uniform(1.0, 1.2)
     w, h = img.size
     resized = img.resize((int(w * scale), int(h * scale)))
     cropped = resized.crop((0, 0, w, h))
     variants.append(cropped)
 
-    # Brillo
     enhancer = ImageEnhance.Brightness(img)
     brightness = random.uniform(0.7, 1.3)
     variants.append(enhancer.enhance(brightness))
 
     return variants
 
-# === Procesar cada clase objetivo ===
 for cls in AUGMENT_CLASSES:
     class_path = os.path.join(INPUT_FOLDER, cls)
     output_class_path = os.path.join(OUTPUT_FOLDER, cls)
