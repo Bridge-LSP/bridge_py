@@ -496,4 +496,8 @@ def main():
     print(f"\n📊 Frases exitosas: {stats.get('total', 0)} | Correcciones: {health['total_corrections']} | Tasa éxito: {health['feedback_stats']['success_rate']}%")
 
 if __name__ == "__main__":
+    print("🚀 Iniciando Bridge Main.py - Laboratorio de Pruebas")
+    print("📚 Para usar la API, ejecuta: python -m uvicorn api.api_main:app --reload --host 0.0.0.0 --port 8000")
+    print("🔬 Este es el entorno de laboratorio para pruebas locales")
+    print("")
     main()

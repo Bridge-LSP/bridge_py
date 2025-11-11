@@ -1,10 +1,37 @@
 from fastapi.responses import FileResponse
-from engine_bridge.text_to_speech import generar_audio
+from engine_bridge.text_to_speech import bridge_tts
+import tempfile
+import os
 
-def generate_speech_file(texto: str, idioma: str) -> FileResponse:
-    archivo = generar_audio(texto, idioma)
-    return FileResponse(
-        archivo, 
-        media_type="audio/mpeg", 
-        filename=f"speech_{idioma}_{texto}.mp3"
-    )
+def generate_speech_file(texto: str, idioma: str = "es") -> FileResponse:
+    """Genera archivo de audio TTS y lo devuelve como FileResponse"""
+    try:
+        # Crear archivo temporal
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
+        temp_path = temp_file.name
+        temp_file.close()
+        
+        # Configurar voz para el idioma
+        bridge_tts._set_voice_for_language(idioma)
+        
+        # Generar audio
+        bridge_tts.engine.save_to_file(texto, temp_path)
+        bridge_tts.engine.runAndWait()
+        
+        if os.path.exists(temp_path):
+            return FileResponse(
+                temp_path, 
+                media_type="audio/wav", 
+                filename=f"speech_{idioma}_{hash(texto)}.wav"
+            )
+        else:
+            raise Exception("No se pudo generar el archivo de audio")
+            
+    except Exception as e:
+        print(f"❌ Error generando audio: {e}")
+        # Devolver archivo vacío o error
+        return FileResponse(
+            "static/error.wav" if os.path.exists("static/error.wav") else temp_path,
+            media_type="audio/wav",
+            filename="error.wav"
+        )

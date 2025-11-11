@@ -22,6 +22,7 @@ class ConnectionManager:
     async def connect(self, websocket: WebSocket, client_id: str):
         await websocket.accept()
         self.active_connections[client_id] = websocket
+        print(f"[Bridge] WebSocket connected: {client_id}")
         print(f"📱 Cliente {client_id} conectado. Total: {len(self.active_connections)}")
     
     def disconnect(self, client_id: str):
@@ -88,6 +89,7 @@ manager = ConnectionManager()
 @router.websocket("/ws/detection/{client_id}")
 async def websocket_detection_endpoint(websocket: WebSocket, client_id: str):
     """Endpoint WebSocket para detección de señas en tiempo real"""
+    print(f"[Bridge] WebSocket connection attempt from client: {client_id}")
     await manager.connect(websocket, client_id)
     
     try:
@@ -97,9 +99,10 @@ async def websocket_detection_endpoint(websocket: WebSocket, client_id: str):
             await manager.process_frame_ultra_fast(websocket, data)
             
     except WebSocketDisconnect:
+        print(f"[Bridge] WebSocket disconnected: {client_id}")
         manager.disconnect(client_id)
     except Exception as e:
-        print(f"❌ Error en WebSocket {client_id}: {e}")
+        print(f"[Bridge] Error in WebSocket {client_id}: {e}")
         manager.disconnect(client_id)
 
 @router.get("/ws/status")

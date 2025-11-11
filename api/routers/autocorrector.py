@@ -25,8 +25,28 @@ def validate_required_fields(data: dict, required: list):
 )
 async def create_session(request: SessionCreateRequest):
     try:
-        return SessionResponse(**autocorrector_service.create_session(request.session_id))
+        print(f"[Bridge] New session request: {request.session_id}")
+        result = autocorrector_service.create_session(request.session_id)
+        print(f"[Bridge] Session created successfully: {result}")
+        return SessionResponse(**result)
     except Exception as e:
+        print(f"[Bridge] Error creating session: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get(
+    "/session/test/{session_id}",
+    summary="Test session creation (for debugging)",
+    description="Simple GET endpoint to test session creation without POST body",
+)
+async def test_session_creation(session_id: str):
+    try:
+        print(f"[Bridge] Test session creation: {session_id}")
+        result = autocorrector_service.create_session(session_id)
+        print(f"[Bridge] Test session created: {result}")
+        return {"message": "Session created successfully", "session_id": session_id, "status": "created"}
+    except Exception as e:
+        print(f"[Bridge] Error in test session creation: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
