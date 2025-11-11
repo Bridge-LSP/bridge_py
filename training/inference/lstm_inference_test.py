@@ -1,7 +1,7 @@
 import cv2
 import mediapipe as mp
 import numpy as np
-from tensorflow.keras.models import load_model
+import tensorflow as tf
 
 # === CONFIGURACIÓN Y RUTAS ===
 SEQUENCE_LENGTH = 30
@@ -48,7 +48,7 @@ def extract_landmark_sequence(video_path, sequence_length=SEQUENCE_LENGTH):
 # === PREDICCIÓN USANDO MODELO LSTM ===
 if __name__ == "__main__":
     # Cargar modelo
-    model = load_model(MODEL_PATH)
+    model = tf.keras.models.load_model(MODEL_PATH)
 
     # Obtener secuencia de landmarks desde video
     seq = extract_landmark_sequence(VIDEO_PATH)

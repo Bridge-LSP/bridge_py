@@ -1,9 +1,7 @@
 import os
 import json
 import numpy as np
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Masking
-from tensorflow.keras.utils import to_categorical
+import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 
@@ -60,17 +58,17 @@ def train_lstm():
         print("❌ No se encontraron secuencias válidas para entrenamiento.")
         return
 
-    y_cat = to_categorical(y)
+    y_cat = tf.keras.utils.to_categorical(y)
     X_train, X_test, y_train, y_test = train_test_split(
         X, y_cat, test_size=0.2, random_state=42
     )
 
-    model = Sequential([
-        Masking(mask_value=0.0, input_shape=(SEQUENCE_LENGTH, FEATURES_PER_FRAME)),
-        LSTM(64, return_sequences=True),
-        LSTM(32),
-        Dense(64, activation='relu'),
-        Dense(y_cat.shape[1], activation='softmax')
+    model = tf.keras.Sequential([
+        tf.keras.layers.Masking(mask_value=0.0, input_shape=(SEQUENCE_LENGTH, FEATURES_PER_FRAME)),
+        tf.keras.layers.LSTM(64, return_sequences=True),
+        tf.keras.layers.LSTM(32),
+        tf.keras.layers.Dense(64, activation='relu'),
+        tf.keras.layers.Dense(y_cat.shape[1], activation='softmax')
     ])
 
     model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
