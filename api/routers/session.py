@@ -5,7 +5,7 @@ import time
 import uuid
 import logging
 from datetime import datetime
-from api.services.bert_autocorrector_service import BertAutocorrectorService
+from api.services.bert_autocorrector_service import AutoCorrectorService
 from api.routers.realtime_detection import SESSIONS, PREFS, SessionState, UserPreferences
 
 router = APIRouter()
@@ -22,7 +22,7 @@ class SessionInitResponse(BaseModel):
     created_at: str
 
 # Global instances
-autocorrector_service = BertAutocorrectorService()
+autocorrector_service = AutoCorrectorService()
 
 @router.post("/init", response_model=SessionInitResponse)
 async def init_session(
