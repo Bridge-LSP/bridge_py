@@ -4,7 +4,6 @@ import numpy as np
 import tensorflow as tf
 from collections import deque
 
-# === CONFIGURACIÓN GLOBAL ===
 SEQUENCE_LENGTH = 30
 FEATURES_PER_FRAME = 63
 MODEL_PATH = 'models/lstm_model.h5'
@@ -12,7 +11,6 @@ LABEL_MAP = {0: 'j', 1: 'll', 2: 'rr', 3: 'z', 4: 'ny'}
 
 mp_hands = mp.solutions.hands
 
-# === FUNCIÓN: Extraer landmarks desde un frame individual ===
 def extract_landmarks_from_frame(frame):
     with mp_hands.Hands(static_image_mode=False, max_num_hands=1) as hands:
         results = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
@@ -21,7 +19,6 @@ def extract_landmarks_from_frame(frame):
             return [coord for point in lm.landmark for coord in (point.x, point.y, point.z)]
     return None
 
-# === BUCLE PRINCIPAL DE INFERENCIA ===
 if __name__ == "__main__":
     model = tf.keras.models.load_model(MODEL_PATH)
     cap = cv2.VideoCapture(0)

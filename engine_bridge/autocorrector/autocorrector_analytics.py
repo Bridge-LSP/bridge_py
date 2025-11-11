@@ -2,13 +2,11 @@ import time
 from collections import defaultdict, Counter
 import Levenshtein
 
-# === CLASE ANALÍTICA DEL AUTOCORRECTOR ===
 class AutoCorrectorAnalytics:
     def __init__(self, autocorrector):
         self.autocorrector = autocorrector
         self.storage = autocorrector.storage
 
-    # === CREACIÓN DE REGISTROS DE FRASES ===
     def create_sentence_record(self, words_feedback, sentence_words, session_start_time, corrections_made):
         if not words_feedback:
             return None
@@ -48,7 +46,6 @@ class AutoCorrectorAnalytics:
             for i, info in enumerate(feedback)
         ]
 
-    # === MÉTRICAS DE EVALUACIÓN DE CALIDAD ===
     def calculate_levenshtein_ratio(self, original: str, corrected: str) -> float:
         orig_words = original.lower().split()
         corr_words = corrected.lower().split()
@@ -86,7 +83,6 @@ class AutoCorrectorAnalytics:
 
         return round(min(1.0, total_score / evaluations), 3) if evaluations else 0.5
 
-    # === ESTADÍSTICAS DE APRENDIZAJE Y SALUD ===
     def get_learning_stats(self) -> dict:
         learned = self.storage.learned_corrections
         return {
@@ -117,7 +113,6 @@ class AutoCorrectorAnalytics:
             "recommendations": self._get_health_recommendations(rate, len(self.storage.correction_blacklist), len(self.storage.learned_corrections))
         }
 
-    # === SUGERENCIAS PARA ENTRENAMIENTO CON BERT ===
     def get_bert_training_suggestions(self) -> dict:
         sentences = [
             s for s in self.storage.successful_sentences
@@ -150,7 +145,6 @@ class AutoCorrectorAnalytics:
             "most_common_mistakes": dict(Counter(mistakes).most_common(10))
         }
 
-    # === CLASIFICADORES INTERNOS Y RECOMENDACIONES ===
     def _calculate_difficulty_score(self, original, corrected, coherence):
         wc = len(original.split())
         ratio = self.calculate_levenshtein_ratio(original, corrected)

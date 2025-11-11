@@ -4,12 +4,8 @@ from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 from utils.hand_tracking_config import MODEL_PATH
 
-# === CREACIÓN DEL DETECTOR DE MANOS (HAND LANDMARKER) ===
 def create_hand_landmarker(running_mode="IMAGE"):
-    """
-    Crea una instancia del detector de manos con MediaPipe usando el modelo especificado.
-    Admite los modos: 'IMAGE', 'VIDEO', 'LIVE_STREAM'.
-    """
+
     base_options = python.BaseOptions(model_asset_path=MODEL_PATH)
 
     try:

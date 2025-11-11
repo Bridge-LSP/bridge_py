@@ -10,12 +10,10 @@ from api.services.bert_autocorrector_service import AutoCorrectorService
 router = APIRouter()
 autocorrector_service = AutoCorrectorService()
 
-
 def validate_required_fields(data: dict, required: list):
     for field in required:
         if data.get(field) is None:
             raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
-
 
 @router.post(
     "/session/create",
@@ -33,7 +31,6 @@ async def create_session(request: SessionCreateRequest):
         print(f"[Bridge] Error creating session: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get(
     "/session/test/{session_id}",
     summary="Test session creation (for debugging)",
@@ -48,7 +45,6 @@ async def test_session_creation(session_id: str):
     except Exception as e:
         print(f"[Bridge] Error in test session creation: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post(
     "/letter/add",
@@ -65,7 +61,6 @@ async def add_letter(request: AddLetterRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post(
     "/word/finish",
     response_model=WordCompletedResponse,
@@ -80,7 +75,6 @@ async def finish_word(request: FinishWordRequest):
         return WordCompletedResponse(**result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post(
     "/session/status",
@@ -97,7 +91,6 @@ async def get_session_status(request: SessionStatusRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post(
     "/sentence/end",
     summary="End current sentence",
@@ -113,7 +106,6 @@ async def end_sentence(payload: dict = Body(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post(
     "/session/reset",
     summary="Reset session",
@@ -128,8 +120,6 @@ async def reset_session(request: SessionStatusRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# 7. ELIMINAR PALABRA (Funcionalidad avanzada)
 @router.delete(
     "/word/remove",
     summary="Remove word from sentence",
@@ -144,7 +134,6 @@ async def remove_word(payload: dict = Body(...)):
         return JSONResponse(content=result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post(
     "/word/feedback",

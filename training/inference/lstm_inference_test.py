@@ -3,7 +3,6 @@ import mediapipe as mp
 import numpy as np
 import tensorflow as tf
 
-# === CONFIGURACIÓN Y RUTAS ===
 SEQUENCE_LENGTH = 30
 FEATURES_PER_FRAME = 63
 MODEL_PATH = 'models/lstm_model.h5'
@@ -11,11 +10,8 @@ VIDEO_PATH = 'training/dataset_multimedia/dataset_dynamic/j/J LSP1.mp4'
 
 mp_hands = mp.solutions.hands
 
-# === EXTRACCIÓN DE SECUENCIA DE LANDMARKS DESDE VIDEO ===
 def extract_landmark_sequence(video_path, sequence_length=SEQUENCE_LENGTH):
-    """
-    Procesa un video y extrae una secuencia de landmarks normalizada de longitud fija.
-    """
+
     cap = cv2.VideoCapture(video_path)
     sequence = []
 
@@ -45,18 +41,13 @@ def extract_landmark_sequence(video_path, sequence_length=SEQUENCE_LENGTH):
 
     return np.array(sequence)
 
-# === PREDICCIÓN USANDO MODELO LSTM ===
 if __name__ == "__main__":
-    # Cargar modelo
     model = tf.keras.models.load_model(MODEL_PATH)
 
-    # Obtener secuencia de landmarks desde video
     seq = extract_landmark_sequence(VIDEO_PATH)
 
-    # Realizar predicción
     pred = model.predict(np.expand_dims(seq, axis=0))
     pred_label = np.argmax(pred)
 
-    # Mostrar resultados
     print("Predicción (índice):", pred_label)
     print("Probabilidades:", pred)

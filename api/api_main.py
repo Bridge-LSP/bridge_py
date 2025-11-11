@@ -3,30 +3,23 @@ import time
 import logging
 from fastapi.middleware.cors import CORSMiddleware
 from api.routers import (
-    detection, text_to_speech, autocorrector, translation, 
+    detection, text_to_speech, autocorrector, translation,
     websocket_detection, realtime_detection, timer_management, continuous_detection,
     session, phrase_finalization
 )
 
-# Configuration constants
 CONFIDENCE_THRESHOLD = 0.70
-FRAME_MIN_INTERVAL_MS = 200     # throttle
-MAX_INFLIGHT_FRAMES = 1         # backpressure: drop extra
+FRAME_MIN_INTERVAL_MS = 200
+MAX_INFLIGHT_FRAMES = 1
 PHRASE_IDLE_SECONDS = 5
-WS_MAX_MESSAGE_BYTES = 10_485_760  # 10MB
+WS_MAX_MESSAGE_BYTES = 10_485_760
 PING_INTERVAL_SECONDS = 25
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S"
 )
-
-# Set DEBUG level for performance logging if needed
-# logging.getLogger("api.routers.continuous_detection").setLevel(logging.DEBUG)
-# logging.getLogger("api.routers.realtime_detection").setLevel(logging.DEBUG)
-# logging.getLogger("api.routers.phrase_finalization").setLevel(logging.DEBUG)
 
 try:
     from api.routers import word_builder, phrase_completion, bert_correction, enhanced_tts
@@ -61,7 +54,7 @@ app.add_middleware(
 async def add_performance_headers(request, call_next):
     start_time = time.time()
     response = await call_next(request)
-    
+
     process_time = time.time() - start_time
     response.headers["X-Processing-Time"] = str(process_time)
     response.headers["X-Content-Type-Options"] = "nosniff"
@@ -74,13 +67,13 @@ async def root():
         "message": "🚀 Bridge API v3.0 - Production Ready!",
         "version": "3.0.0",
         "features": [
-            "websocket_realtime", 
+            "websocket_realtime",
             "heartbeat_monitoring",
             "incremental_state_updates",
             "unified_session_init",
             "phrase_finalization",
-            "autocorrection", 
-            "translation", 
+            "autocorrection",
+            "translation",
             "conversational_lsp",
             "performance_logging",
             "client_authentication",
@@ -125,7 +118,6 @@ app.include_router(realtime_detection.router, prefix="/realtime", tags=["realtim
 app.include_router(timer_management.router, prefix="/timers", tags=["timer-management"])
 app.include_router(continuous_detection.router, prefix="/detection", tags=["continuous-detection"])
 
-# New v3.0 routers
 app.include_router(session.router, prefix="/session", tags=["session-management"])
 app.include_router(phrase_finalization.router, prefix="/phrase", tags=["phrase-finalization"])
 if NEW_ROUTERS_AVAILABLE:

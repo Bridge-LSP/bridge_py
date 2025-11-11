@@ -5,14 +5,14 @@ import time
 from typing import List, Dict
 
 def extract_features(landmarks) -> np.ndarray:
-    """Extrae características de los landmarks de la mano."""
+
     features = []
     for lm in landmarks:
         features.extend([lm.x, lm.y, lm.z])
     return np.array(features).reshape(1, -1)
 
 class PhraseTimer:
-    """Controla el tiempo sin detección de señas para determinar el fin de una frase."""
+
     def __init__(self, timeout_seconds=10):
         self.timeout_seconds = timeout_seconds
         self.last_detection_time = time.time()
@@ -31,8 +31,8 @@ class PhraseTimer:
         return False
 
 async def process_image_detection(
-    file_contents: bytes, 
-    hand_landmarker, 
+    file_contents: bytes,
+    hand_landmarker,
     model,
     phrase_timer: PhraseTimer = None
 ) -> List[Dict]:
