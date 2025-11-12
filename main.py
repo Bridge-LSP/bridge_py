@@ -58,7 +58,6 @@ letra_actual = ""
 completed_sentence = ""
 sentence_completed = False
 word_finalized = False
-feedback_mode = False
 translated_sentence = ""
 translated_lang = ""
 
@@ -155,28 +154,13 @@ def draw_interface(frame):
         else:
             frame = draw_unicode_text(frame, "Desactivada", (40, 260), font_size=22, color=(200, 100, 100))
 
-    if words:
-        frame = draw_unicode_text(frame, "- Palabras:", (20, 305), font_size=18, color=(80, 80, 80))
-        words_text = " • ".join([f"{i+1}.{word}" for i, word in words])
-        frame = draw_unicode_text(frame, words_text, (40, 325), font_size=18, color=(120, 0, 120))
-
-    if feedback_mode:
-        y_feedback = 350 if words else 285
-        cv2.rectangle(frame, (15, y_feedback), (frame_width - 15, y_feedback + 55), (255, 220, 0), -1)
-        cv2.rectangle(frame, (15, y_feedback), (frame_width - 15, y_feedback + 55), (200, 160, 0), 2)
-        frame = draw_unicode_text(frame, "- FEEDBACK ACTIVO", (25, y_feedback + 20), font_size=18, color=(100, 50, 0))
-        frame = draw_unicode_text(frame, "Escribe en consola: número + corrección (ej: '2 hola')", (25, y_feedback + 45), font_size=14, color=(80, 40, 0))
-
     controls_y = panel_height + 20
-    cv2.putText(frame, "CONTROLES:", (20, controls_y + 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-
-    controls1 = "ESPACIO=forzar palabra | E=finalizar frase | R=reiniciar | F=feedback | D=eliminar | T=traducir manual"
-    cv2.putText(frame, controls1, (20, controls_y + 50), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+    cv2.putText(frame, "DETECCIÓN AUTOMÁTICA LSP", (20, controls_y + 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
     model_status = f"Modelo: {MODEL_MODE.upper()}"
     translate_status = f"Auto-traduccion: {AUTO_TRANSLATE_TO.upper() if AUTO_TRANSLATE_TO else 'OFF'}"
-    stats_text = f"{model_status} | {translate_status} | Correcciones: {stats['total_corrections']} | Frases: {sentence_stats.get('total', 0)}"
-    cv2.putText(frame, stats_text, (20, controls_y + 70), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 255), 1)
+    stats_text = f"{model_status} | {translate_status}"
+    cv2.putText(frame, stats_text, (20, controls_y + 50), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
 
     if letra_actual:
         letter_size = 120
@@ -190,80 +174,6 @@ def draw_interface(frame):
         cv2.putText(frame, letra_actual, (letter_x + 25, letter_y + 80), cv2.FONT_HERSHEY_SIMPLEX, 2.5, (0, 0, 0), 4)
 
     return frame
-
-def handle_feedback_input():
-    global feedback_mode
-    print("\n🔄 MODO FEEDBACK AVANZADO")
-    words = autocorrector.get_sentence_words()
-
-    if not words:
-        print("❌ No hay palabras para corregir")
-        feedback_mode = False
-        return
-
-    for i, word in words:
-        print(f"  {i+1}. {word}")
-    print("• Número + palabra: '2 hola' | 'd2' para eliminar | 'c' para cancelar")
-    user_input = input("Tu comando: ").strip()
-
-    if user_input.lower() == 'c':
-        print("❌ Feedback cancelado")
-    elif user_input.lower().startswith('d'):
-        try:
-            idx = int(user_input[1:]) - 1
-            if autocorrector.remove_word(idx):
-                print("✅ Palabra eliminada")
-            else:
-                print("❌ Índice inválido")
-        except:
-            print("❌ Formato incorrecto")
-    else:
-        try:
-            idx, correction = user_input.split(' ', 1)
-            idx = int(idx) - 1
-            if autocorrector.provide_feedback_for_word(idx, correction):
-                print("✅ Corrección aplicada")
-            else:
-                print("❌ Índice inválido")
-        except:
-            print("❌ Formato incorrecto")
-    feedback_mode = False
-
-def handle_word_deletion():
-    words = autocorrector.get_sentence_words()
-    if not words:
-        print("❌ No hay palabras para eliminar")
-        return
-
-    for i, word in words:
-        print(f"  {i+1}. {word}")
-    user_input = input("¿Qué palabra quieres eliminar? (1, 2...) o 'c': ").strip()
-
-    if user_input.lower() == 'c':
-        print("❌ Cancelado")
-    else:
-        try:
-            idx = int(user_input) - 1
-            if autocorrector.remove_word(idx):
-                print("✅ Eliminado")
-            else:
-                print("❌ Índice inválido")
-        except:
-            print("❌ Formato inválido")
-
-def handle_sentence_confirmation():
-    if not autocorrector.sentence_feedback_requested:
-        print("❌ No hay frase pendiente")
-        return
-    record = autocorrector.pending_sentence_confirmation
-    print(f"Original: '{record['original_sentence']}'\nCorregida: '{record['corrected_sentence']}'\nCoherencia: {record['semantic_coherence']:.2f}\nCorrecciones: {record['correction_ratio_advanced']:.2f}")
-    print("¿Calidad? (1=Perfecta, 5=Muy mala)")
-    try:
-        feedback = int(input("Tu evaluación (1-5): ").strip())
-        if autocorrector.confirm_sentence_quality(feedback >= 3, feedback):
-            print("✅ Evaluación registrada")
-    except:
-        print("❌ Entrada inválida")
 
 def clear_completed_sentence():
     global completed_sentence, sentence_completed, translated_sentence, translated_lang
@@ -316,15 +226,69 @@ def complete_sentence():
 
 def main():
     global last_prediction, last_time, last_letter_time, letra_actual
-    global word_finalized, feedback_mode, phrase_active, sentence_completed
+    global word_finalized, phrase_active, sentence_completed
 
-    cap = cv2.VideoCapture(0)
-    cap.set(3, CAMERA_WIDTH)
-    cap.set(4, CAMERA_HEIGHT)
+    print("🎥 Intentando acceder a la cámara...")
+    
+    # Intentar diferentes índices de cámara
+    camera_found = False
+    cap = None
+    
+    for camera_index in range(3):  # Probar cámaras 0, 1, 2
+        print(f"   Probando cámara {camera_index}...")
+        cap = cv2.VideoCapture(camera_index)
+        if cap.isOpened():
+            # Configurar propiedades antes de probar lectura
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
+            cap.set(cv2.CAP_PROP_FPS, 30)
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            
+            # Test if we can actually read from it
+            for attempt in range(3):  # Intentar leer 3 veces
+                ret, test_frame = cap.read()
+                if ret and test_frame is not None and test_frame.size > 0:
+                    print(f"✅ Cámara {camera_index} disponible")
+                    camera_found = True
+                    break
+            
+            if camera_found:
+                break
+            else:
+                print(f"❌ Cámara {camera_index} no puede leer frames válidos")
+                cap.release()
+        else:
+            print(f"❌ Cámara {camera_index} no disponible")
+            if cap:
+                cap.release()
+    
+    if not camera_found:
+        print("❌ Error: No se encontró ninguna cámara disponible")
+        print("💡 Posibles soluciones:")
+        print("   - Cierra Flutter app y otras aplicaciones que usen la cámara")
+        print("   - Verifica que la cámara esté conectada")
+        print("   - Desconecta y reconecta la cámara")
+        return
+    
+    # Ya configurado en el bucle de detección, no configurar de nuevo
+    # cap.set(3, CAMERA_WIDTH) - Ya configurado arriba
+    # cap.set(4, CAMERA_HEIGHT) - Ya configurado arriba
+    
+    # Configurar buffer para evitar lag (ya hecho en detección)
+    print("✅ Cámara inicializada correctamente")
+    print("🤖 Cargando detector de manos...")
+    
     hand_landmarker = create_hand_landmarker(running_mode="VIDEO")
-    cv2.namedWindow("Sign Language Recognition - Auto Corrector")
+    
+    print("🖼️ Creando ventana de visualización...")
+    cv2.namedWindow("Sign Language Recognition - Auto Corrector", cv2.WINDOW_NORMAL)
+    cv2.resizeWindow("Sign Language Recognition - Auto Corrector", 1000, 700)
 
     print(f"🚀 Sistema iniciado (Modo: {MODEL_MODE.upper()})")
+    print("📹 Ventana de cámara debe aparecer ahora...")
+    print("📺 Si no ves la ventana, presiona ALT+TAB")
+    print("⌨️ Presiona Q para salir")
+    
     if AUTO_TRANSLATE_TO:
         lang_names = {
             "ar": "العربية", "bg": "Български", "cs": "Čeština", "da": "Dansk",
@@ -343,12 +307,22 @@ def main():
     while True:
         ret, frame = cap.read()
         if not ret:
+            print("❌ Error: No se puede leer de la cámara")
             break
+        
+        # Verificar que el frame sea válido
+        if frame is None or frame.size == 0:
+            print("⚠️ Frame inválido, intentando siguiente...")
+            continue
 
-        frame = cv2.flip(frame, 1)
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        timestamp = int(cap.get(cv2.CAP_PROP_POS_MSEC))
-        results = hand_landmarker.detect_for_video(mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb), timestamp)
+        try:
+            frame = cv2.flip(frame, 1)
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            timestamp = int(cap.get(cv2.CAP_PROP_POS_MSEC))
+            results = hand_landmarker.detect_for_video(mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb), timestamp)
+        except Exception as e:
+            print(f"⚠️ Error procesando frame: {e}")
+            continue
 
         current_time = time.time()
         detected = False
@@ -359,7 +333,7 @@ def main():
                 lstm_buffer.append(frame_features)
 
         if (MODEL_MODE in ("lstm", "both") and lstm_model and lstm_buffer and
-            len(lstm_buffer) == lstm_buffer.maxlen and not feedback_mode):
+            len(lstm_buffer) == lstm_buffer.maxlen):
             seq = np.array(lstm_buffer)
             pred = lstm_model.predict(np.expand_dims(seq, axis=0), verbose=0)
             pred_label = np.argmax(pred)
@@ -381,7 +355,7 @@ def main():
                     prediction_type = "lstm"
                     print(f"🔁 LSTM Letra: {letra_actual}")
 
-        if MODEL_MODE in ("rf", "both") and results.hand_landmarks and not feedback_mode and not detected:
+        if MODEL_MODE in ("rf", "both") and results.hand_landmarks and not detected:
             for idx, lm in enumerate(results.hand_landmarks):
                 draw_landmarks(frame, lm, frame.shape[1], frame.shape[0])
                 draw_connections(frame, lm, frame.shape[1], frame.shape[0])
@@ -401,13 +375,13 @@ def main():
                     detected = True
                     print(f"✅ Letra: {letra_actual}")
 
-        if (phrase_active and not feedback_mode and autocorrector.sentence_words and
+        if (phrase_active and autocorrector.sentence_words and
             (current_time - last_letter_time > PHRASE_TIMEOUT)):
             print("⏰ No se detectaron señas por 5 segundos. Fin de frase automático.")
             complete_sentence()
 
         if (not detected and autocorrector.word_buffer and
-            current_time - last_letter_time > PAUSE_THRESHOLD and not word_finalized and not feedback_mode):
+            current_time - last_letter_time > PAUSE_THRESHOLD and not word_finalized):
             word = autocorrector.finish_word()
             if word.strip():
                 print(f"📝 Palabra: {word}")
@@ -415,68 +389,25 @@ def main():
             letra_actual = ""
 
         frame = draw_interface(frame)
-        cv2.imshow("Sign Language Recognition - Auto Corrector", frame)
+        
+        try:
+            cv2.imshow("Sign Language Recognition - Auto Corrector", frame)
+            # Asegurar que la ventana sea visible
+            cv2.moveWindow("Sign Language Recognition - Auto Corrector", 100, 100)
+        except Exception as e:
+            print(f"⚠️ Error mostrando frame: {e}")
+            continue
 
         key = cv2.waitKey(5) & 0xFF
         if key == ord("q"):
             if TTS_ENABLED:
                 bridge_tts.stop_current_audio()
             break
-        elif key == ord("r"):
-            if TTS_ENABLED:
-                bridge_tts.stop_current_audio()
-            autocorrector.clear_buffer()
-            autocorrector.end_sentence()
-            letra_actual, last_prediction = "", None
-            word_finalized, feedback_mode, phrase_active = False, False, False
-            clear_completed_sentence()
-            print("🔄 Sistema reiniciado completamente")
-        elif key == ord("s"):
-            if TTS_ENABLED:
-                bridge_tts.stop_current_audio()
-                print("🛑 Audio detenido manualmente")
-        elif key == ord("p"):
-            if TTS_ENABLED and (completed_sentence or translated_sentence):
-                text_to_play = translated_sentence if translated_sentence else completed_sentence
-                lang_to_use = translated_lang if translated_sentence else 'es'
-                bridge_tts.speak_sentence_completion(text_to_play, lang_to_use)
-                print(f"🔊 Repitiendo audio en {lang_to_use}")
-        elif key == ord("e"):
-            if autocorrector.sentence_words:
-                complete_sentence()
-            else:
-                print("❌ Nada que finalizar")
-        elif key == ord("d") and not feedback_mode:
-            threading.Thread(target=handle_word_deletion, daemon=True).start()
-        elif key == ord("f") and not feedback_mode:
-            feedback_mode = True
-            threading.Thread(target=handle_feedback_input, daemon=True).start()
-        elif key == ord("c") and not feedback_mode:
-            threading.Thread(target=handle_sentence_confirmation, daemon=True).start()
-        elif key == ord(" "):
-            if autocorrector.word_buffer and not feedback_mode:
-                word = autocorrector.finish_word()
-                print(f"📝 Palabra forzada: {word}")
-                word_finalized, letra_actual = True, ""
-        elif key == ord("t"):
-            sentence_to_translate = completed_sentence if sentence_completed else autocorrector.get_sentence_string()
-            if sentence_to_translate.strip():
-                lang = input().strip().lower()
-                if lang in LANG_MAP:
-                    translated = translate_text(sentence_to_translate, lang)
-                    if translated:
-                        translated_sentence = translated
-                        translated_lang = lang
-                        print(f"✅ Traducción manual: {translated}")
-                    else:
-                        print("❌ No se pudo traducir.")
-                else:
-                    print("❌ Idioma no soportado.")
-            else:
-                print("❌ No hay frase para traducir.")
 
+    print("🔄 Cerrando sistema...")
     cap.release()
     cv2.destroyAllWindows()
+    print("✅ Cámara liberada correctamente")
 
     if TTS_ENABLED:
         bridge_tts.stop_current_audio()
