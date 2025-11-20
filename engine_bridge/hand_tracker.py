@@ -19,10 +19,7 @@ def create_hand_landmarker(running_mode="IMAGE"):
         )
         return vision.HandLandmarker.create_from_options(options)
 
-    except Exception as e:
-        print(f"[WARNING] Falló la inicialización con running_mode={running_mode}. Error: {e}")
-        print("[INFO] Reintentando con running_mode='VIDEO' por defecto")
-
+    except Exception:
         fallback_options = vision.HandLandmarkerOptions(
             base_options=base_options,
             running_mode=vision.RunningMode.VIDEO,

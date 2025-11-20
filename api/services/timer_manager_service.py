@@ -26,8 +26,6 @@ class TimerManagerService:
             self.active_timers[session_id] = {}
         self.active_timers[session_id]['word'] = timer
 
-        print(f"[Timer] Word timer started for session {session_id} ({self.PAUSE_THRESHOLD}s)")
-
     def start_phrase_timer(self, session_id: str):
 
         self._cancel_timer(session_id, 'phrase')
@@ -39,13 +37,9 @@ class TimerManagerService:
             self.active_timers[session_id] = {}
         self.active_timers[session_id]['phrase'] = timer
 
-        print(f"[Timer] Phrase timer started for session {session_id} ({self.PHRASE_TIMEOUT}s)")
-
     def reset_timers(self, session_id: str):
-
         self._cancel_timer(session_id, 'word')
         self._cancel_timer(session_id, 'phrase')
-        print(f"[Timer] All timers reset for session {session_id}")
 
     def _cancel_timer(self, session_id: str, timer_type: str):
 
@@ -66,13 +60,12 @@ class TimerManagerService:
             if autocorrector.word_buffer and not session.get("word_finalized", False):
                 word = autocorrector.finish_word()
                 session["word_finalized"] = True
-                print(f"[Timer] Auto-finished word: '{word}' for session {session_id}")
 
                 if autocorrector.sentence_words:
                     self.start_phrase_timer(session_id)
 
-        except Exception as e:
-            print(f"[Timer] Error auto-finishing word for {session_id}: {e}")
+        except Exception:
+            pass
 
     def _auto_finish_phrase(self, session_id: str):
 
@@ -86,31 +79,24 @@ class TimerManagerService:
             if autocorrector.sentence_words:
                 final_sentence = autocorrector.end_sentence()
                 if final_sentence.strip():
-                    print(f"[Timer] Auto-finished phrase: '{final_sentence}' for session {session_id}")
-
                     user_prefs = session.get("user_preferences", {})
 
                     translated_sentence = None
                     if user_prefs.get("auto_translate", False) and user_prefs.get("target_language"):
                         translated_sentence = translate_text(final_sentence, user_prefs["target_language"])
-                        if translated_sentence:
-                            print(f"[Timer] Auto-translated to {user_prefs['target_language']}: '{translated_sentence}'")
 
                     if user_prefs.get("tts_enabled", True):
                         text_for_tts = translated_sentence if translated_sentence else final_sentence
                         lang_for_tts = user_prefs.get("target_language", "es") if translated_sentence else "es"
-
-                        success = bridge_tts.speak_text_async(text_for_tts, lang_for_tts)
-                        if success:
-                            print(f"[Timer] Auto-TTS started in {lang_for_tts}")
+                        bridge_tts.speak_text_async(text_for_tts, lang_for_tts)
 
                     session["sentence_completed"] = True
                     session["completed_sentence"] = final_sentence
                     if translated_sentence:
                         session["translated_sentence"] = translated_sentence
 
-        except Exception as e:
-            print(f"[Timer] Error auto-finishing phrase for {session_id}: {e}")
+        except Exception:
+            pass
 
     def get_timer_status(self, session_id: str) -> Dict:
 

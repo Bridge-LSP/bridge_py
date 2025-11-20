@@ -51,29 +51,23 @@ class TranslationService:
         self.translator = translator
 
     async def translate_text(self, text: str, target_language: str = "en", source_language: str = "es"):
-
         try:
             loop = asyncio.get_event_loop()
             result = await loop.run_in_executor(None, self._translate_sync, text, target_language, source_language)
             return result
         except Exception as e:
-            print(f"❌ Async translation error: {e}")
             return {"status": "error", "detail": str(e)}
 
     def _translate_sync(self, text: str, target_language: str, source_language: str):
-
         if not text or not text.strip():
-            print("❌ Texto vacío para traducir")
             return {"status": "error", "detail": "Empty text"}
 
         deepl_lang = LANG_MAP.get(target_language.lower())
 
         if not deepl_lang:
-            print(f"❌ Idioma no soportado: {target_language}")
             return {"status": "error", "detail": f"Unsupported language: {target_language}"}
 
         try:
-            print(f"🔍 DEBUG: Traduciendo '{text}' de {source_language.upper()} a {deepl_lang}")
 
             result = self.translator.translate_text(
                 text,
@@ -84,11 +78,7 @@ class TranslationService:
             translated_text = result.text
             detected_lang = result.detected_source_lang
 
-            print(f"🔍 DEBUG: Idioma fuente detectado: {detected_lang}")
-            print(f"🔍 DEBUG: Resultado: '{translated_text}'")
-
             if translated_text.lower().strip() == text.lower().strip():
-                print(f"⚠️ La traducción es igual al original")
                 if target_language.lower() == source_language.lower():
                     return {
                         "status": "success",
@@ -106,25 +96,20 @@ class TranslationService:
             }
 
         except deepl.DeepLException as e:
-            print(f"❌ Error específico de DeepL: {e}")
             return {"status": "error", "detail": f"DeepL error: {str(e)}"}
         except Exception as e:
-            print(f"❌ Error general al traducir: {e}")
             return {"status": "error", "detail": f"Translation error: {str(e)}"}
 
 def translate_text(text, target_lang):
     if not text or not text.strip():
-        print("❌ Texto vacío para traducir")
         return None
 
     deepl_lang = LANG_MAP.get(target_lang.lower())
 
     if not deepl_lang:
-        print(f"❌ Idioma no soportado: {target_lang}")
         return None
 
     try:
-        print(f"🔍 DEBUG: Traduciendo '{text}' de ES a {deepl_lang}")
 
         result = translator.translate_text(
             text,
@@ -135,22 +120,16 @@ def translate_text(text, target_lang):
         translated_text = result.text
         detected_lang = result.detected_source_lang
 
-        print(f"🔍 DEBUG: Idioma fuente forzado: ES")
-        print(f"🔍 DEBUG: Resultado: '{translated_text}'")
-
         if translated_text.lower().strip() == text.lower().strip():
-            print(f"⚠️ La traducción es igual al original")
             if target_lang.lower() == "es":
                 return text
             return None
 
         return translated_text
 
-    except deepl.DeepLException as e:
-        print(f"❌ Error específico de DeepL: {e}")
+    except deepl.DeepLException:
         return None
-    except Exception as e:
-        print(f"❌ Error general al traducir: {e}")
+    except Exception:
         return None
 
 translation_service = TranslationService()

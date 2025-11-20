@@ -23,12 +23,9 @@ class BridgeMobileClient:
         try:
             self.websocket = await websockets.connect(f"{self.server_url}/{self.client_id}")
             self.is_connected = True
-            print(f"🔗 Conectado como {self.client_id}")
-
             asyncio.create_task(self.listen_messages())
             return True
-        except Exception as e:
-            print(f"❌ Error conectando: {e}")
+        except Exception:
             return False
 
     async def listen_messages(self):
@@ -38,41 +35,18 @@ class BridgeMobileClient:
                 data = json.loads(message)
                 await self.handle_server_message(data)
         except websockets.exceptions.ConnectionClosed:
-            print("📱 Conexión cerrada por el servidor")
             self.is_connected = False
-        except Exception as e:
-            print(f"❌ Error escuchando mensajes: {e}")
+        except Exception:
             self.is_connected = False
 
     async def handle_server_message(self, data):
-
         msg_type = data.get("type", "unknown")
 
-        if msg_type == "welcome":
-            print(f"✅ {data.get('message', 'Conectado')}")
-
-        elif msg_type == "prediction":
+        if msg_type == "prediction":
             self.stats['predictions_received'] += 1
-
-            predictions = data.get("predictions", [])
-            for pred in predictions:
-                print(f"📝 Letra: {pred['letter']} ({pred['confidence']:.2f}) - {pred['handedness']}")
-
             stable = data.get("stable_prediction")
             if stable:
                 self.stats['stable_predictions'] += 1
-                print(f"⚡ ESTABLE: {stable['letter']} ({stable['confidence']:.2f})")
-
-            processing_time = data.get("processing_time_ms", 0)
-            fps = data.get("fps", 0)
-            print(f"⏱️ Procesamiento: {processing_time}ms, FPS: {fps}")
-
-        elif msg_type == "error":
-            print(f"❌ Error del servidor: {data.get('error', 'Unknown error')}")
-
-        elif msg_type == "server_stats":
-            stats = data.get("stats", {})
-            print(f"📊 Stats servidor: {stats}")
 
     async def send_frame(self, frame):
 
@@ -86,8 +60,7 @@ class BridgeMobileClient:
             await self.websocket.send(frame_base64)
             return True
 
-        except Exception as e:
-            print(f"❌ Error enviando frame: {e}")
+        except Exception:
             return False
 
     async def send_frame_json(self, frame, metadata=None):
@@ -111,16 +84,13 @@ class BridgeMobileClient:
             await self.websocket.send(json.dumps(message))
             return True
 
-        except Exception as e:
-            print(f"❌ Error enviando frame JSON: {e}")
+        except Exception:
             return False
 
     async def disconnect(self):
-
         if self.websocket:
             await self.websocket.close()
         self.is_connected = False
-        print("📱 Desconectado del servidor")
 
     def get_stats(self):
 
@@ -135,8 +105,6 @@ async def demo_with_camera():
     cap = cv2.VideoCapture(0)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-
-    print("📷 Iniciando demo con cámara - Presiona 'q' para salir")
 
     try:
         frame_count = 0
@@ -158,16 +126,11 @@ async def demo_with_camera():
             await asyncio.sleep(0.033)
 
     except KeyboardInterrupt:
-        print("\n🛑 Demo interrumpida")
+        pass
     finally:
         cap.release()
         cv2.destroyAllWindows()
         await client.disconnect()
-
-        stats = client.get_stats()
-        print(f"\n📊 Estadísticas finales:")
-        print(f"   Predicciones recibidas: {stats['predictions_received']}")
-        print(f"   Predicciones estables: {stats['stable_predictions']}")
 
 if __name__ == "__main__":
     asyncio.run(demo_with_camera())

@@ -59,7 +59,5 @@ def process_all_videos():
                 with open(out_path, 'w') as f:
                     json.dump({'label': label, 'sequence': sequence}, f)
 
-                print(f"Procesado {fname} → {out_path}")
-
 if __name__ == "__main__":
     process_all_videos()

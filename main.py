@@ -42,12 +42,9 @@ if MODEL_MODE in ("lstm", "both"):
         FEATURES_PER_FRAME = 63
         lstm_model = tf.keras.models.load_model(LSTM_PATH)
         lstm_buffer = deque(maxlen=SEQUENCE_LENGTH)
-        print("✅ Modelo LSTM cargado correctamente")
     except ImportError:
-        print("⚠️ TensorFlow no disponible. Usando solo Random Forest.")
         MODEL_MODE = "rf"
-    except Exception as e:
-        print(f"⚠️ Error cargando modelo LSTM: {e}. Usando solo Random Forest.")
+    except Exception:
         MODEL_MODE = "rf"
 
 phrase_active = False
@@ -181,7 +178,6 @@ def clear_completed_sentence():
     sentence_completed = False
     translated_sentence = ""
     translated_lang = ""
-    print("🔄 Frase anterior limpiada - empezando nueva frase")
 
 def complete_sentence():
     global completed_sentence, sentence_completed, phrase_active, translated_sentence, translated_lang
@@ -190,15 +186,13 @@ def complete_sentence():
         completed_sentence = final_sentence
         sentence_completed = True
         phrase_active = False
-        print(f"✅ Frase completada: {final_sentence}")
+        print(f"Sentence completed: {final_sentence}")
 
         if TTS_ENABLED and TTS_AUTO_PLAY:
             if AUTO_TRANSLATE_TO and translated_sentence:
                 bridge_tts.speak_sentence_completion(translated_sentence, AUTO_TRANSLATE_TO)
-                print(f"🔊 Reproduciendo traducción en {AUTO_TRANSLATE_TO}")
             else:
                 bridge_tts.speak_sentence_completion(final_sentence, 'es')
-                print(f"🔊 Reproduciendo frase en español")
 
         if AUTO_TRANSLATE_TO:
             translated = translate_text(final_sentence, AUTO_TRANSLATE_TO)
@@ -216,11 +210,10 @@ def complete_sentence():
                     "tr": "Türkçe", "uk": "Українська", "vi": "Tiếng Việt",
                     "zh": "中文", "zh-hans": "中文简体", "zh-hant": "中文繁體"
                 }
-                print(f"✅ Traducción automática ({lang_names.get(AUTO_TRANSLATE_TO, AUTO_TRANSLATE_TO)}): {translated}")
+                print(f"Translation ({lang_names.get(AUTO_TRANSLATE_TO, AUTO_TRANSLATE_TO)}): {translated}")
 
                 if TTS_ENABLED and TTS_AUTO_PLAY:
                     bridge_tts.speak_sentence_completion(translated, AUTO_TRANSLATE_TO)
-                    print(f"🔊 Reproduciendo traducción en {AUTO_TRANSLATE_TO}")
 
     return final_sentence
 
@@ -228,14 +221,14 @@ def main():
     global last_prediction, last_time, last_letter_time, letra_actual
     global word_finalized, phrase_active, sentence_completed
 
-    print("🎥 Intentando acceder a la cámara...")
+    print("Accessing camera...")
     
     # Intentar diferentes índices de cámara
     camera_found = False
     cap = None
     
-    for camera_index in range(3):  # Probar cámaras 0, 1, 2
-        print(f"   Probando cámara {camera_index}...")
+    for camera_index in range(3):
+        print(f"   Testing camera {camera_index}...")
         cap = cv2.VideoCapture(camera_index)
         if cap.isOpened():
             # Configurar propiedades antes de probar lectura
@@ -245,49 +238,43 @@ def main():
             cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
             
             # Test if we can actually read from it
-            for attempt in range(3):  # Intentar leer 3 veces
+            for attempt in range(3):
                 ret, test_frame = cap.read()
                 if ret and test_frame is not None and test_frame.size > 0:
-                    print(f"✅ Cámara {camera_index} disponible")
+                    print(f"Camera {camera_index} available")
                     camera_found = True
                     break
             
             if camera_found:
                 break
             else:
-                print(f"❌ Cámara {camera_index} no puede leer frames válidos")
+                print(f"Camera {camera_index} cannot read valid frames")
                 cap.release()
         else:
-            print(f"❌ Cámara {camera_index} no disponible")
+            print(f"Camera {camera_index} not available")
             if cap:
                 cap.release()
     
     if not camera_found:
-        print("❌ Error: No se encontró ninguna cámara disponible")
-        print("💡 Posibles soluciones:")
-        print("   - Cierra Flutter app y otras aplicaciones que usen la cámara")
-        print("   - Verifica que la cámara esté conectada")
-        print("   - Desconecta y reconecta la cámara")
+        print("Error: No camera available")
+        print("Possible solutions:")
+        print("   - Close Flutter app and other applications using the camera")
+        print("   - Verify camera is connected")
+        print("   - Disconnect and reconnect the camera")
         return
     
-    # Ya configurado en el bucle de detección, no configurar de nuevo
-    # cap.set(3, CAMERA_WIDTH) - Ya configurado arriba
-    # cap.set(4, CAMERA_HEIGHT) - Ya configurado arriba
-    
-    # Configurar buffer para evitar lag (ya hecho en detección)
-    print("✅ Cámara inicializada correctamente")
-    print("🤖 Cargando detector de manos...")
+    print("Camera initialized")
+    print("Loading hand detector...")
     
     hand_landmarker = create_hand_landmarker(running_mode="VIDEO")
     
-    print("🖼️ Creando ventana de visualización...")
     cv2.namedWindow("Sign Language Recognition - Auto Corrector", cv2.WINDOW_NORMAL)
     cv2.resizeWindow("Sign Language Recognition - Auto Corrector", 1000, 700)
 
-    print(f"🚀 Sistema iniciado (Modo: {MODEL_MODE.upper()})")
-    print("📹 Ventana de cámara debe aparecer ahora...")
-    print("📺 Si no ves la ventana, presiona ALT+TAB")
-    print("⌨️ Presiona Q para salir")
+    print(f"System started (Mode: {MODEL_MODE.upper()})")
+    print("Camera window should appear now")
+    print("If you don't see the window, press ALT+TAB")
+    print("Press Q to exit")
     
     if AUTO_TRANSLATE_TO:
         lang_names = {
@@ -301,18 +288,16 @@ def main():
             "tr": "Türkçe", "uk": "Українська", "vi": "Tiếng Việt",
             "zh": "中文", "zh-hans": "中文简体", "zh-hant": "中文繁體"
         }
-        print(f"🌐 Traducción automática activada a: {lang_names.get(AUTO_TRANSLATE_TO, AUTO_TRANSLATE_TO.upper())}")
-        print("📡 Usando DeepL directamente")
+        print(f"Auto-translation enabled to: {lang_names.get(AUTO_TRANSLATE_TO, AUTO_TRANSLATE_TO.upper())}")
+        print("Using DeepL API")
 
     while True:
         ret, frame = cap.read()
         if not ret:
-            print("❌ Error: No se puede leer de la cámara")
+            print("Error: Cannot read from camera")
             break
         
-        # Verificar que el frame sea válido
         if frame is None or frame.size == 0:
-            print("⚠️ Frame inválido, intentando siguiente...")
             continue
 
         try:
@@ -321,7 +306,7 @@ def main():
             timestamp = int(cap.get(cv2.CAP_PROP_POS_MSEC))
             results = hand_landmarker.detect_for_video(mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb), timestamp)
         except Exception as e:
-            print(f"⚠️ Error procesando frame: {e}")
+            print(f"Error processing frame: {e}")
             continue
 
         current_time = time.time()
@@ -353,7 +338,7 @@ def main():
                     word_finalized = False
                     detected = True
                     prediction_type = "lstm"
-                    print(f"🔁 LSTM Letra: {letra_actual}")
+                    print(f"LSTM Letter: {letra_actual}")
 
         if MODEL_MODE in ("rf", "both") and results.hand_landmarks and not detected:
             for idx, lm in enumerate(results.hand_landmarks):
@@ -373,18 +358,18 @@ def main():
                     phrase_active = True
                     word_finalized = False
                     detected = True
-                    print(f"✅ Letra: {letra_actual}")
+                    print(f"Letter: {letra_actual}")
 
         if (phrase_active and autocorrector.sentence_words and
             (current_time - last_letter_time > PHRASE_TIMEOUT)):
-            print("⏰ No se detectaron señas por 5 segundos. Fin de frase automático.")
+            print("No signs detected for 5 seconds. Auto-completing sentence.")
             complete_sentence()
 
         if (not detected and autocorrector.word_buffer and
             current_time - last_letter_time > PAUSE_THRESHOLD and not word_finalized):
             word = autocorrector.finish_word()
             if word.strip():
-                print(f"📝 Palabra: {word}")
+                print(f"Word: {word}")
             word_finalized = True
             letra_actual = ""
 
@@ -392,10 +377,9 @@ def main():
         
         try:
             cv2.imshow("Sign Language Recognition - Auto Corrector", frame)
-            # Asegurar que la ventana sea visible
             cv2.moveWindow("Sign Language Recognition - Auto Corrector", 100, 100)
         except Exception as e:
-            print(f"⚠️ Error mostrando frame: {e}")
+            print(f"Error displaying frame: {e}")
             continue
 
         key = cv2.waitKey(5) & 0xFF
@@ -404,21 +388,21 @@ def main():
                 bridge_tts.stop_current_audio()
             break
 
-    print("🔄 Cerrando sistema...")
+    print("Shutting down system...")
     cap.release()
     cv2.destroyAllWindows()
-    print("✅ Cámara liberada correctamente")
+    print("Camera released")
 
     if TTS_ENABLED:
         bridge_tts.stop_current_audio()
 
     stats = autocorrector.get_successful_sentences_stats()
     health = autocorrector.get_correction_health_report()
-    print(f"\n📊 Frases exitosas: {stats.get('total', 0)} | Correcciones: {health['total_corrections']} | Tasa éxito: {health['feedback_stats']['success_rate']}%")
+    print(f"\nSuccessful sentences: {stats.get('total', 0)} | Corrections: {health['total_corrections']} | Success rate: {health['feedback_stats']['success_rate']}%")
 
 if __name__ == "__main__":
-    print("🚀 Iniciando Bridge Main.py - Laboratorio de Pruebas")
-    print("📚 Para usar la API, ejecuta: python -m uvicorn api.api_main:app --reload --host 0.0.0.0 --port 8000")
-    print("🔬 Este es el entorno de laboratorio para pruebas locales")
+    print("Starting Bridge Main.py - Test Lab")
+    print("To use the API, run: python -m uvicorn api.api_main:app --reload --host 0.0.0.0 --port 8000")
+    print("This is the local testing environment")
     print("")
     main()
