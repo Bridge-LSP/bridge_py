@@ -16,20 +16,15 @@ class RealtimeTTS:
         self.current_file = None
 
     def _setup_engine(self):
-
         self.engine.setProperty('rate', 180)
         self.engine.setProperty('volume', 0.9)
-
         self.voices_map = self._map_available_voices()
-        print(f"🎤 Voces disponibles: {list(self.voices_map.keys())}")
 
     def _setup_audio_player(self):
-
         try:
             pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=1024)
-            print("🔊 Reproductor de audio inicializado")
-        except Exception as e:
-            print(f"⚠️ Error inicializando audio: {e}")
+        except Exception:
+            pass
 
     def _map_available_voices(self) -> Dict[str, str]:
 
@@ -57,21 +52,17 @@ class RealtimeTTS:
                 if any(pattern in voice_id or pattern in voice_name for pattern in patterns):
                     if lang_code not in voices_map:
                         voices_map[lang_code] = voice.id
-                        print(f"✅ Voz {lang_code}: {voice.name}")
                         break
 
         if voices and 'es' not in voices_map:
             voices_map['es'] = voices[0].id
-            print(f"⚠️ Usando voz por defecto para español: {voices[0].name}")
 
         return voices_map
 
     def _set_voice_for_language(self, lang_code: str):
-
         voice_id = self.voices_map.get(lang_code, self.voices_map.get('es'))
         if voice_id:
             self.engine.setProperty('voice', voice_id)
-            print(f"🎤 Voz configurada para {lang_code}")
 
     def speak_text_async(self, text: str, language: str = 'es') -> bool:
 
@@ -87,10 +78,7 @@ class RealtimeTTS:
         return True
 
     def _speak_text_sync(self, text: str, language: str):
-
         try:
-            print(f"🔊 Generando audio: '{text}' ({language})")
-
             self._set_voice_for_language(language)
 
             temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
@@ -106,11 +94,9 @@ class RealtimeTTS:
                     os.unlink(temp_path)
                 except:
                     pass
-            else:
-                print("❌ Error: Archivo de audio no generado")
 
-        except Exception as e:
-            print(f"❌ Error en TTS: {e}")
+        except Exception:
+            pass
 
     def _play_audio_file(self, file_path: str):
 
@@ -126,22 +112,16 @@ class RealtimeTTS:
 
             self.is_playing = False
             self.current_file = None
-            print("✅ Audio reproducido completamente")
 
-        except Exception as e:
-            print(f"❌ Error reproduciendo audio: {e}")
+        except Exception:
             self.is_playing = False
 
     def stop_current_audio(self):
-
         if self.is_playing:
             pygame.mixer.music.stop()
             self.is_playing = False
-            print("🛑 Audio detenido")
 
     def speak_sentence_completion(self, sentence: str, language: str = 'es'):
-
-        print(f"🎯 TTS: Frase completada en {language}")
         return self.speak_text_async(sentence, language)
 
     def get_status(self) -> Dict:

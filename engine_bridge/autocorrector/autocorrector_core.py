@@ -15,15 +15,12 @@ class AutoCorrector:
 
     def _load_bert_model(self):
         try:
-            print("🔄 Cargando modelo BERT...")
             model_name = "dccuchile/bert-base-spanish-wwm-uncased"
             self.tokenizer = AutoTokenizer.from_pretrained(model_name)
             self.model = AutoModelForMaskedLM.from_pretrained(model_name)
             self.nlp = pipeline('fill-mask', model=self.model, tokenizer=self.tokenizer)
             self.model_loaded = True
-            print("✅ Modelo cargado exitosamente")
-        except Exception as e:
-            print(f"⚠️ Error al cargar modelo BERT: {e}")
+        except Exception:
             self.model_loaded = False
 
     def add_letter(self, letter):
@@ -56,8 +53,6 @@ class AutoCorrector:
                 self.session_start_time, self.corrections_made_in_session
             )
             self.storage.set_pending_confirmation(record)
-            print(f"📝 Frase completada: '{sentence}'")
-            print("💡 Usa 'confirm_sentence()' para confirmar")
 
         self._reset_session()
         return sentence
@@ -69,7 +64,6 @@ class AutoCorrector:
                 word_info["raw_word"], correct_word, word_info["context"], index
             )
             self.sentence_words[index] = correct_word
-            print(f"🧠 Feedback aplicado: '{word_info['raw_word']}' → '{correct_word}'")
             return True
         return False
 
@@ -84,13 +78,11 @@ class AutoCorrector:
             removed = self.sentence_words.pop(index)
             if index < len(self.words_feedback):
                 self.words_feedback.pop(index)
-            print(f"🗑️ Palabra eliminada: '{removed}'")
             return True
         return False
 
     def clear_buffer(self):
         self.word_buffer.clear()
-        print("🧹 Buffer limpiado")
 
     def _correct_word(self, word, context):
         if not word or len(word) < 2:

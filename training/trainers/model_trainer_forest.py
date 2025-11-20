@@ -39,21 +39,13 @@ def load_dataset():
 
 def train_model():
     X, y = load_dataset()
-    print(f"📦 Dataset cargado: {len(X)} muestras, {len(y)} etiquetas")
-
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    print(f"🧪 Datos de entrenamiento: {len(X_train)}, Datos de prueba: {len(X_test)}")
 
     model = RandomForestClassifier(n_estimators=100, random_state=42)
     model.fit(X_train, y_train)
-    print("✅ Modelo entrenado correctamente")
 
     y_pred = model.predict(X_test)
-
-    print("\n📈 Reporte de clasificación:")
     print(classification_report(y_test, y_pred))
-
-    print("\n📊 Matriz de Confusión:")
     labels = sorted(list(set(y)))
     cm = confusion_matrix(y_test, y_pred, labels=labels)
     plt.figure(figsize=(18, 14))
@@ -65,7 +57,6 @@ def train_model():
     plt.show()
 
     joblib.dump(model, MODEL_OUTPUT_PATH)
-    print(f"\n💾 Modelo guardado en: {MODEL_OUTPUT_PATH}")
 
 if __name__ == "__main__":
     train_model()

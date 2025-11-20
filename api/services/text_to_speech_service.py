@@ -25,7 +25,7 @@ def generate_speech_file(texto: str, idioma: str = "es") -> FileResponse:
             raise Exception("No se pudo generar el archivo de audio")
 
     except Exception as e:
-        print(f"❌ Error generando audio: {e}")
+        print(f"Error generating audio: {e}")
         return FileResponse(
             "static/error.wav" if os.path.exists("static/error.wav") else temp_path,
             media_type="audio/wav",

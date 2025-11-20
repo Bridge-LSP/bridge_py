@@ -13,21 +13,17 @@ import mediapipe as mp
 
 class UltraFastRealtimeServer:
     def __init__(self):
-        print("🚀 Iniciando servidor WebSocket ultra-rápido...")
         self.landmarker = create_hand_landmarker()
         self.model = joblib.load('models/forest_model_u.pkl')
         self.clients = set()
         self.processed_frames = 0
         self.start_time = time.time()
-        print("✅ Modelos cargados - Servidor listo")
 
     async def register_client(self, websocket):
         self.clients.add(websocket)
-        print(f"📱 Cliente conectado. Total activos: {len(self.clients)}")
 
     async def unregister_client(self, websocket):
         self.clients.discard(websocket)
-        print(f"❌ Cliente desconectado. Total activos: {len(self.clients)}")
 
     async def process_detection_ultra_fast(self, websocket, path):
 
@@ -73,11 +69,6 @@ class UltraFastRealtimeServer:
                     response["processing_time_ms"] = round(processing_time, 2)
 
                     self.processed_frames += 1
-                    if self.processed_frames % 100 == 0:
-                        uptime = time.time() - self.start_time
-                        fps = self.processed_frames / uptime
-                        print(f"📊 Frames procesados: {self.processed_frames} | FPS promedio: {fps:.1f}")
-
                     await websocket.send(json.dumps(response))
 
                 except Exception as e:
@@ -89,21 +80,18 @@ class UltraFastRealtimeServer:
 
         except websockets.exceptions.ConnectionClosed:
             pass
-        except Exception as e:
-            print(f"❌ Error en conexión: {e}")
+        except Exception:
+            pass
         finally:
             await self.unregister_client(websocket)
 
 server_instance = UltraFastRealtimeServer()
 
 async def main():
-    parser = argparse.ArgumentParser(description='Servidor WebSocket ultra-rápido para Bridge')
-    parser.add_argument('--host', default='localhost', help='Host del servidor')
-    parser.add_argument('--port', type=int, default=8765, help='Puerto del servidor')
+    parser = argparse.ArgumentParser(description='WebSocket server for Bridge LSP')
+    parser.add_argument('--host', default='localhost', help='Server host')
+    parser.add_argument('--port', type=int, default=8765, help='Server port')
     args = parser.parse_args()
-
-    print(f"🌐 Iniciando servidor en ws://{args.host}:{args.port}")
-    print("🚀 Optimizado para LSP conversacional - Latencia < 50ms")
 
     start_server = websockets.serve(
         server_instance.process_detection_ultra_fast,
@@ -115,14 +103,12 @@ async def main():
     )
 
     await start_server
-    print(f"✅ Servidor activo y esperando conexiones...")
-
     await asyncio.Future()
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n🛑 Servidor detenido por usuario")
-    except Exception as e:
-        print(f"❌ Error fatal del servidor: {e}")
+        pass
+    except Exception:
+        pass

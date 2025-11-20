@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 import time
 import logging
+import asyncio
 from fastapi.middleware.cors import CORSMiddleware
 from api.routers import (
     detection, text_to_speech, autocorrector, translation,
@@ -24,8 +25,7 @@ logging.basicConfig(
 try:
     from api.routers import word_builder, phrase_completion, bert_correction, enhanced_tts
     NEW_ROUTERS_AVAILABLE = True
-except ImportError as e:
-    print(f"⚠️ Algunos routers nuevos no están disponibles: {e}")
+except ImportError:
     NEW_ROUTERS_AVAILABLE = False
 
 app = FastAPI(
@@ -38,7 +38,7 @@ app = FastAPI(
     version="3.0.0",
     contact={
         "name": "LUMIX Team",
-        "url": "https://bridge.com.pe",
+        "url": "https://bridge-lsp.vercel.app/",
     }
 )
 
@@ -98,37 +98,12 @@ async def root():
 
 @app.on_event("startup")
 async def startup_event():
-    print("🚀 Bridge API v3.0 Starting...")
-    
-    # Initialize SessionManager with shared models
     try:
         from engine_bridge.session_manager import initialize_session_manager
         session_manager = initialize_session_manager()
-        print("✅ SessionManager initialized with shared ML models")
-        
-        # Start background cleanup task
-        import asyncio
         asyncio.create_task(periodic_cleanup())
-        print("✅ Background session cleanup task started")
-        
     except Exception as e:
-        print(f"❌ Error initializing SessionManager: {e}")
         raise
-    
-    print("📱 Ready for Flutter connections on:")
-    print("   - Local: http://127.0.0.1:8000")
-    print("   - Android Emulator: http://10.0.2.2:8000")
-    print("   - WebSocket (Legacy): ws://127.0.0.1:8000/realtime/ws/detection/{client_id}")
-    print("   - WebSocket (SessionEngine): ws://127.0.0.1:8000/realtime/ws/detection/{session_id}")
-    print("✨ New SessionEngine Architecture:")
-    print("   - Unified session init: POST /session/init")
-    print("   - Real-time detection: WebSocket /realtime/ws/detection/{session_id}")
-    print("   - Session preferences: PATCH /session/preferences")
-    print("   - Manual finalization: POST /session/finalize")
-    print("   - Session reset: POST /session/reset")
-    print("   - WebSocket heartbeat monitoring with ping/pong")
-    print("   - Shared ML models across all sessions")
-    print("✅ Bridge API v3.0 with SessionEngine is production ready!")
 
 
 async def periodic_cleanup():
@@ -141,22 +116,19 @@ async def periodic_cleanup():
             await asyncio.sleep(600)  # 10 minutes
             session_manager = get_session_manager()
             cleaned_count = session_manager.cleanup_inactive_sessions()
-            if cleaned_count > 0:
-                print(f"🧹 Cleaned up {cleaned_count} inactive sessions")
-        except Exception as e:
-            print(f"⚠️ Error in periodic cleanup: {e}")
+            pass
+        except Exception:
+            pass
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Clean shutdown of SessionManager."""
     try:
         from engine_bridge.session_manager import get_session_manager
         session_manager = get_session_manager()
         session_manager.stop_all_sessions()
-        print("✅ All sessions stopped for shutdown")
-    except Exception as e:
-        print(f"⚠️ Error during shutdown: {e}")
+    except Exception:
+        pass
 
 app.include_router(detection.router, tags=["detection"])
 app.include_router(text_to_speech.router, tags=["text-to-speech"])
@@ -179,9 +151,6 @@ if NEW_ROUTERS_AVAILABLE:
     app.include_router(phrase_completion.router, prefix="/phrase", tags=["phrase-completion"])
     app.include_router(bert_correction.router, prefix="/bert", tags=["bert-correction"])
     app.include_router(enhanced_tts.router, prefix="/tts", tags=["enhanced-tts"])
-    print("✅ Todos los routers nuevos cargados correctamente")
-else:
-    print("⚠️ Ejecutándose en modo básico - algunos endpoints no disponibles")
 
 @app.get("/health")
 async def health():

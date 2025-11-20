@@ -36,17 +36,14 @@ def load_sequences():
                         X.append(data['sequence'])
                         y.append(label_map[label])
                     except json.JSONDecodeError:
-                        print(f"⚠️ Archivo JSON inválido: {path}")
                         continue
 
     return np.array(X), np.array(y), label_map
 
 def train_lstm():
-
     X, y, label_map = load_sequences()
 
     if len(X) == 0 or len(y) == 0:
-        print("❌ No se encontraron secuencias válidas para entrenamiento.")
         return
 
     y_cat = tf.keras.utils.to_categorical(y)
@@ -66,14 +63,11 @@ def train_lstm():
     model.fit(X_train, y_train, epochs=30, batch_size=8, validation_data=(X_test, y_test))
 
     model.save(MODEL_PATH)
-    print(f"\n✅ Modelo LSTM guardado en: {MODEL_PATH}")
-    print(f"🗂️ Label map: {label_map}")
 
     y_pred = model.predict(X_test)
     y_pred_labels = np.argmax(y_pred, axis=1)
     y_true_labels = np.argmax(y_test, axis=1)
 
-    print("\n📈 Reporte de clasificación:")
     print(classification_report(y_true_labels, y_pred_labels))
 
 if __name__ == "__main__":

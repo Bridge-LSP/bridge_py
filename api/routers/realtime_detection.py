@@ -312,8 +312,7 @@ def decode_image(img_bytes: bytes):
         np_arr = np.frombuffer(img_bytes, np.uint8)
         image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
         return image
-    except Exception as e:
-        print(f"[decode_image] Error: {e}")
+    except Exception:
         return None
 
 def run_mediapipe_and_get_top_prediction(image):

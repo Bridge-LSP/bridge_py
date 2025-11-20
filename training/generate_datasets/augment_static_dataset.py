@@ -33,7 +33,6 @@ for cls in AUGMENT_CLASSES:
     output_class_path = os.path.join(OUTPUT_FOLDER, cls)
 
     if not os.path.exists(class_path):
-        print(f"⚠️ Carpeta no encontrada: {class_path}")
         continue
 
     for fname in os.listdir(class_path):
@@ -47,5 +46,3 @@ for cls in AUGMENT_CLASSES:
         for idx, aug in enumerate(augmented):
             out_name = f"{os.path.splitext(fname)[0]}_aug{idx}.jpg"
             aug.save(os.path.join(output_class_path, out_name))
-
-print("✅ Augmentación completada.")

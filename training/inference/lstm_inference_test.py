@@ -48,6 +48,5 @@ if __name__ == "__main__":
 
     pred = model.predict(np.expand_dims(seq, axis=0))
     pred_label = np.argmax(pred)
-
-    print("Predicción (índice):", pred_label)
-    print("Probabilidades:", pred)
+    print("Prediction:", pred_label)
+    print("Probabilities:", pred)

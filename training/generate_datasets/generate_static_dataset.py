@@ -30,12 +30,10 @@ def generate_dataset_from_folder(label_filter=None):
 
     with open(OUTPUT_JSON, 'w', encoding='utf-8') as f:
         json.dump(dataset, f, indent=2)
-    print(f"\n✅ Dataset generado en {OUTPUT_JSON} con {len(dataset)} muestras.")
 
 def process_image(filepath, label_folder, hand_landmarker, dataset):
     image = cv2.imread(filepath)
     if image is None:
-        print(f"⚠️ Error al leer {filepath}")
         return
 
     rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -65,14 +63,11 @@ def process_video(filepath, label_folder, hand_landmarker, dataset):
             break
 
         timestamp_ms = int(cap.get(cv2.CAP_PROP_POS_MSEC))
-        print(f"[DEBUG] Frame {frame_count}: Original timestamp_ms = {timestamp_ms}")
 
         if timestamp_ms <= last_timestamp_ms:
             timestamp_ms = last_timestamp_ms + 1
-            print(f"[DEBUG] Frame {frame_count}: Adjusted timestamp_ms = {timestamp_ms}")
 
         if timestamp_ms % 200 == 0:
-            print(f"[DEBUG] Frame {frame_count}: Processing frame with timestamp_ms = {timestamp_ms}")
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
             results = hand_landmarker.detect_for_video(mp_image, timestamp_ms=timestamp_ms)
@@ -100,7 +95,6 @@ def process_video(filepath, label_folder, hand_landmarker, dataset):
         frame_count += 1
 
     cap.release()
-    print(f"[DEBUG] Video {filepath} procesado con éxito.")
 
 if __name__ == "__main__":
     generate_dataset_from_folder(label_filter=None)

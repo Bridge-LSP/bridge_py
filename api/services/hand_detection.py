@@ -5,14 +5,12 @@ import time
 from typing import List, Dict
 
 def extract_features(landmarks) -> np.ndarray:
-
     features = []
     for lm in landmarks:
         features.extend([lm.x, lm.y, lm.z])
     return np.array(features).reshape(1, -1)
 
 class PhraseTimer:
-
     def __init__(self, timeout_seconds=10):
         self.timeout_seconds = timeout_seconds
         self.last_detection_time = time.time()
@@ -26,7 +24,6 @@ class PhraseTimer:
     def check_timeout(self):
         if self.active and (time.time() - self.last_detection_time > self.timeout_seconds):
             self.active = False
-            print("⏰ No se detectaron señas por 10 segundos. Fin de frase automático.")
             return True
         return False
 

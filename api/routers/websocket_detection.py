@@ -17,18 +17,14 @@ class ConnectionManager:
         self.active_connections: Dict[str, WebSocket] = {}
         self.landmarker = get_hand_landmarker()
         self.model = get_forest_model()
-        print("🚀 WebSocket Manager inicializado con modelos cargados")
 
     async def connect(self, websocket: WebSocket, client_id: str):
         await websocket.accept()
         self.active_connections[client_id] = websocket
-        print(f"[Bridge] WebSocket connected: {client_id}")
-        print(f"📱 Cliente {client_id} conectado. Total: {len(self.active_connections)}")
 
     def disconnect(self, client_id: str):
         if client_id in self.active_connections:
             del self.active_connections[client_id]
-            print(f"❌ Cliente {client_id} desconectado. Total: {len(self.active_connections)}")
 
     async def process_frame_ultra_fast(self, websocket: WebSocket, frame_data: str):
 
@@ -88,21 +84,16 @@ manager = ConnectionManager()
 
 @router.websocket("/ws/detection/{client_id}")
 async def websocket_detection_endpoint(websocket: WebSocket, client_id: str):
-
-    print(f"[Bridge] WebSocket connection attempt from client: {client_id}")
     await manager.connect(websocket, client_id)
 
     try:
         while True:
             data = await websocket.receive_text()
-
             await manager.process_frame_ultra_fast(websocket, data)
 
     except WebSocketDisconnect:
-        print(f"[Bridge] WebSocket disconnected: {client_id}")
         manager.disconnect(client_id)
-    except Exception as e:
-        print(f"[Bridge] Error in WebSocket {client_id}: {e}")
+    except Exception:
         manager.disconnect(client_id)
 
 @router.get("/ws/status")

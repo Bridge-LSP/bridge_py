@@ -33,8 +33,8 @@ class AutoCorrectorStorage:
                 with open(path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     parser(data)
-        except Exception as e:
-            print(f"⚠️ Error al cargar {path}: {e}")
+        except Exception:
+            pass
 
     def _parse_learned_corrections(self, data):
         for word, info in data.get('corrections', {}).items():
@@ -50,11 +50,9 @@ class AutoCorrectorStorage:
                     "count": info.get("count", 1)
                 }
         self.sequence_patterns.update(data.get('patterns', {}))
-        print(f"📚 Cargadas {len(self.learned_corrections)} correcciones")
 
     def _parse_successful_sentences(self, data):
         self.successful_sentences = data.get('sentences', [])
-        print(f"📚 Cargadas {len(self.successful_sentences)} frases exitosas")
 
     def _parse_weighted_corrections(self, data):
         self.weighted_corrections.update(data.get('weights', {}))
@@ -68,8 +66,8 @@ class AutoCorrectorStorage:
             os.makedirs(os.path.dirname(path), exist_ok=True)
             with open(path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            print(f"⚠️ Error al guardar {path}: {e}")
+        except Exception:
+            pass
 
     def save_learned_corrections(self):
         self._save_json(self.learning_file, {
@@ -126,9 +124,7 @@ class AutoCorrectorStorage:
         if context_key:
             pattern += f"[ctx:{context_key}]"
         self.sequence_patterns[pattern] += 1
-
         self.save_learned_corrections()
-        print(f"🧠 Aprendido: '{wrong_word}' → '{correct_word}'")
 
     def _build_context_key(self, context):
         if not context:
@@ -175,7 +171,6 @@ class AutoCorrectorStorage:
     def confirm_sentence_quality(self, is_correct=True, user_satisfaction=3):
         record = self.pending_sentence_confirmation
         if not record:
-            print("❌ No hay frase pendiente de confirmación")
             return False
 
         record["user_confirmed"] = is_correct
@@ -199,9 +194,6 @@ class AutoCorrectorStorage:
             self.successful_sentences.append(record)
             self.save_successful_sentences()
             self.save_weighted_corrections()
-            print("✅ Frase confirmada y guardada")
-        else:
-            print("❌ Frase no guardada - feedback negativo registrado")
 
         self.save_correction_feedback()
         self.pending_sentence_confirmation = None
@@ -243,7 +235,6 @@ class AutoCorrectorStorage:
         if cleaned:
             self.save_learned_corrections()
             self.save_correction_feedback()
-            print(f"🧹 Limpieza: {cleaned} correcciones eliminadas")
 
         return {
             "cleaned_corrections": cleaned,
