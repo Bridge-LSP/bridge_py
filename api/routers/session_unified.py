@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel
 
 from engine_bridge.session_manager import get_session_manager
+from api.config import WS_BASE_URL
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -29,6 +30,7 @@ class SessionInitResponse(BaseModel):
     session_id: str
     preferences: Dict[str, Any]
     created_at: str
+    websocket_url: str
 
 
 class PreferencesUpdateRequest(BaseModel):
@@ -52,6 +54,14 @@ async def init_session(
     the session configuration.
     """
     try:
+        # Check if BERT models are still loading
+        from engine_bridge.bert_model_loader import is_loading
+        if is_loading():
+            raise HTTPException(
+                status_code=503,
+                detail="BERT model is still loading. Please retry in a few seconds or check /bert/status"
+            )
+        
         session_manager = get_session_manager()
         
         # Generate session ID if not provided
@@ -97,11 +107,15 @@ async def init_session(
             "phrase_pause_ms": session_engine.phrase_pause_ms
         }
         
+        # Build WebSocket URL
+        websocket_url = f"{WS_BASE_URL}/realtime/ws/detection/{session_id}"
+        
         return SessionInitResponse(
             status="success",
             session_id=session_id,
             preferences=current_preferences,
-            created_at=created_at
+            created_at=created_at,
+            websocket_url=websocket_url
         )
         
     except Exception as e:

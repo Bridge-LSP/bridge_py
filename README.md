@@ -112,3 +112,4 @@ cd C:\GithubRepos\bridge_py
 
 # Iniciar servidor en todas las interfaces (CLAVE)
 python -m uvicorn api.api_main:app --reload --host 0.0.0.0 --port 8000
+python main_ws_visual.py --camera

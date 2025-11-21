@@ -1,27 +1,38 @@
-from transformers import pipeline, AutoTokenizer, AutoModelForMaskedLM
 from spellchecker import SpellChecker
 import Levenshtein
 import time
 from .autocorrector_storage import AutoCorrectorStorage
 from .autocorrector_analytics import AutoCorrectorAnalytics
 
+# Import global BERT models (loaded once at startup)
+from engine_bridge.bert_model_loader import (
+    get_bert_tokenizer,
+    get_bert_model,
+    get_bert_pipeline,
+    is_bert_available
+)
+
 class AutoCorrector:
     def __init__(self, learning_file="dataset_bridge/dataset_bert.json"):
         self.spell = SpellChecker(language='es')
         self.storage = AutoCorrectorStorage(learning_file)
         self.analytics = AutoCorrectorAnalytics(self)
-        self._load_bert_model()
+        self._use_global_bert_models()
         self._reset_session()
 
-    def _load_bert_model(self):
-        try:
-            model_name = "dccuchile/bert-base-spanish-wwm-uncased"
-            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-            self.model = AutoModelForMaskedLM.from_pretrained(model_name)
-            self.nlp = pipeline('fill-mask', model=self.model, tokenizer=self.tokenizer)
-            self.model_loaded = True
-        except Exception:
-            self.model_loaded = False
+    def _use_global_bert_models(self):
+        """
+        Use the globally loaded BERT models instead of loading new ones.
+        This is MUCH faster and prevents HuggingFace rate-limiting in production.
+        """
+        self.tokenizer = get_bert_tokenizer()
+        self.model = get_bert_model()
+        self.nlp = get_bert_pipeline()
+        self.model_loaded = is_bert_available()
+        
+        if not self.model_loaded:
+            # Models not available - autocorrector will work without BERT
+            pass
 
     def add_letter(self, letter):
         self.word_buffer.append(letter)

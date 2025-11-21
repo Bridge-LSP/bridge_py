@@ -5,6 +5,15 @@ This module manages the lifecycle of user sessions, shared ML models,
 and MediaPipe resources to avoid reloading models per session.
 """
 
+# ============================================================================
+# LSTM CONFIGURATION (REVERSIBLE)
+# ============================================================================
+# Set to True to enable LSTM model for dynamic gesture detection (j, ll, rr, z, ñ)
+# Set to False to run Random Forest ONLY mode (reduces RAM/CPU, more stable)
+# To re-enable: Change USE_LSTM = True and restart server
+USE_LSTM = False
+# ============================================================================
+
 import time
 import threading
 import logging
@@ -55,17 +64,23 @@ class SessionManager:
             self.rf_model = joblib.load(rf_model_path)
             logger.info("✅ Random Forest model loaded")
             
-            # Try to load LSTM model if available
-            try:
-                import tensorflow as tf
-                self.lstm_model = tf.keras.models.load_model(lstm_model_path)
-                logger.info("✅ LSTM model loaded")
-            except ImportError:
-                logger.warning("⚠️ TensorFlow not available. LSTM model disabled.")
+            # Conditionally load LSTM model based on USE_LSTM flag
+            if USE_LSTM:
+                # Try to load LSTM model if enabled
+                try:
+                    import tensorflow as tf
+                    self.lstm_model = tf.keras.models.load_model(lstm_model_path)
+                    logger.info("✅ LSTM model loaded (dynamic gestures: j, ll, rr, z, ñ)")
+                except ImportError:
+                    logger.warning("⚠️ TensorFlow not available. LSTM model disabled.")
+                    self.lstm_model = None
+                except Exception as e:
+                    logger.warning(f"⚠️ Could not load LSTM model: {e}. Using RF only.")
+                    self.lstm_model = None
+            else:
+                # LSTM explicitly disabled - RF-only mode
                 self.lstm_model = None
-            except Exception as e:
-                logger.warning(f"⚠️ Could not load LSTM model: {e}. Using RF only.")
-                self.lstm_model = None
+                logger.info("🔧 LSTM disabled (RF-only mode) - Set USE_LSTM=True to re-enable")
                 
         except Exception as e:
             logger.error(f"❌ Error loading models: {e}")

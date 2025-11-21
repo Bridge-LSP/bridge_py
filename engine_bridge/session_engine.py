@@ -20,6 +20,7 @@ from engine_bridge.hand_tracker import create_hand_landmarker
 from api.services.translation_service import translate_text
 from api.services.hand_detection import extract_features
 from engine_bridge.text_to_speech import bridge_tts
+from engine_bridge.bert_model_loader import is_loading, is_bert_available
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,10 @@ class SessionEngine:
         self.hand_landmarker = hand_landmarker
         self.rf_model = rf_model
         self.lstm_model = lstm_model
+        
+        # Check if BERT is still loading
+        if is_loading():
+            logger.warning(f"Session {session_id}: BERT models still loading, autocorrection may be limited")
         
         # Initialize AutoCorrector instance for this session
         self.autocorrector = AutoCorrector()
@@ -159,6 +164,9 @@ class SessionEngine:
         Core method called whenever a new frame arrives over WebSocket.
         Replicates the main detection loop from main.py.
         """
+        # 🎯 DIAGNOSTIC: Entry point
+        print(f"📥 WS frame received | bytes: {len(frame_b64)}")
+        
         current_time = time.time()
         
         # If not running, just return current state
@@ -178,12 +186,13 @@ class SessionEngine:
             # Process detection results
             detected = False
             
-            # Try LSTM first if available
-            if self.lstm_model is not None and self.lstm_buffer is not None:
-                detected = self._run_lstm_if_applicable(results, current_time)
+            # LSTM DISABLED: Only use Random Forest for stable single-frame detection
+            # LSTM requires proper sequence buffering which is not implemented yet
+            # if self.lstm_model is not None and self.lstm_buffer is not None:
+            #     detected = self._run_lstm_if_applicable(results, current_time)
             
-            # Try Random Forest if LSTM didn't detect anything
-            if not detected and results.hand_landmarks:
+            # Use Random Forest ONLY (like main.py which works perfectly)
+            if results.hand_landmarks:
                 detected = self._run_rf_if_applicable(results, current_time)
             
             # Run timeout logic for word and phrase completion
@@ -197,25 +206,57 @@ class SessionEngine:
             return self._build_state_payload()
     
     def _decode_frame_base64(self, frame_b64: str) -> Optional[np.ndarray]:
-        """Decode base64 frame to OpenCV image."""
+        """Decode base64 frame to OpenCV image with centralized preprocessing."""
+        print("🟢 _decode_frame_base64 ENTERED")
         try:
+            from api.services.frame_preprocessor import frame_preprocessor
+            print("🟡 frame_preprocessor imported")
+            
             # Handle data URL prefix if present
             if frame_b64.startswith('data:image'):
+                print("🟣 Stripping data: prefix")
                 frame_b64 = frame_b64.split(',', 1)[1]
             
+            print(f"🔵 Decoding base64 | length: {len(frame_b64)}")
             img_bytes = base64.b64decode(frame_b64)
-            np_arr = np.frombuffer(img_bytes, np.uint8)
-            image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+            print(f"🟠 Decoded to {len(img_bytes)} bytes")
+            image = frame_preprocessor.decode_and_preprocess(img_bytes)
+            print(f"🟤 Preprocessor returned: {image.shape if image is not None else 'None'}")
+            
+            if image is not None:
+                # 🎯 DIAGNOSTIC: Save debug frame and log info
+                try:
+                    cv2.imwrite("debug_ws_frame.jpg", image)
+                    print(f"[DEBUG][WS] Saved frame to debug_ws_frame.jpg | shape={image.shape}, dtype={image.dtype}")
+                    print(f"[DEBUG][WS] Pixel stats: min={image.min()}, max={image.max()}, mean={image.mean():.2f}")
+                except Exception as e:
+                    print(f"[DEBUG][WS] Error saving debug frame: {e}")
+                
+                print(f"➡️  Decoded image shape: {image.shape}")
+                print(f"➡️  dtype: {image.dtype}")
+                logger.debug(f"Session {self.session_id}: Decoded frame shape={image.shape}, dtype={image.dtype}")
+            else:
+                print("⚠️  WARNING: frame_preprocessor.decode_and_preprocess() returned None!")
+                logger.warning(f"Session {self.session_id}: frame_preprocessor returned None")
+            
             return image
         except Exception as e:
             logger.error(f"Session {self.session_id}: Error decoding frame: {e}")
             return None
     
     def _run_mediapipe(self, image: np.ndarray, current_time: float):
-        """Run MediaPipe hand detection on the image."""
+        """Run MediaPipe hand detection on the image.
+        
+        IMPORTANT: frame_preprocessor already handles flipping if configured.
+        We DO NOT flip again here to avoid double-flip bug.
+        main.py flips directly from camera, but WebSocket frames come pre-processed.
+        """
         try:
-            # Flip and convert to RGB (like main.py)
-            image = cv2.flip(image, 1)
+            # 🎯 DIAGNOSTIC: Log input frame details
+            print(f"[DEBUG][MP] Input frame shape for MediaPipe: {image.shape}, dtype={image.dtype}")
+            logger.debug(f"Session {self.session_id}: MediaPipe input shape={image.shape}")
+            
+            # Convert to RGB (NO FLIP - already done by frame_preprocessor if needed)
             rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             
             # Create MediaPipe Image and run detection
@@ -223,14 +264,42 @@ class SessionEngine:
             mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
             results = self.hand_landmarker.detect_for_video(mp_image, timestamp)
             
+            # 🎯 DIAGNOSTIC: Log MediaPipe detection result
+            if results and results.handedness:
+                print(f"[DEBUG][MP] MediaPipe detected {len(results.handedness)} hand(s)")
+                for idx, handedness in enumerate(results.handedness):
+                    category = handedness[0].category_name
+                    score = handedness[0].score
+                    print(f"[DEBUG][MP]   Hand {idx}: {category} ({score:.3f})")
+            else:
+                print("[DEBUG][MP] MediaPipe detected NO HANDS")
+            
+            if not results or not results.hand_landmarks:
+                print("❌ MediaPipe: NO HANDS DETECTED")
+            else:
+                hands_detected = len(results.hand_landmarks)
+                print(f"✋ MediaPipe: detected {hands_detected} hand(s)")
+            
+            # Log detection results
+            hands_detected = len(results.hand_landmarks) if results and results.hand_landmarks else 0
+            logger.debug(f"Session {self.session_id}: MediaPipe detected {hands_detected} hand(s)")
+            
             return results
         except Exception as e:
-            logger.error(f"Session {self.session_id}: MediaPipe error: {e}")
+            logger.error(f"Session {self.session_id}: MediaPipe error: {e}", exc_info=True)
             return None
     
     def _run_lstm_if_applicable(self, results, current_time: float) -> bool:
         """Process LSTM detection if model is available and results contain landmarks."""
+        # Guard: Skip if LSTM model is not loaded (USE_LSTM=False)
+        if self.lstm_model is None:
+            return False
+            
         if not results or not results.hand_world_landmarks:
+            return False
+        
+        # Guard: Skip if LSTM buffer is not initialized
+        if self.lstm_buffer is None:
             return False
         
         try:
@@ -266,7 +335,21 @@ class SessionEngine:
             # Process each detected hand
             for idx, landmarks in enumerate(results.hand_world_landmarks):
                 features = self._extract_features(landmarks)
+                
+                # 🎯 DIAGNOSTIC: Log RF input details
+                flattened = features.flatten() if hasattr(features, 'flatten') else features
+                print(f"[DEBUG][RF] Input vector length: {len(flattened)}")
+                first_10 = flattened[:10].tolist() if hasattr(flattened, 'tolist') else list(flattened[:10])
+                print(f"[DEBUG][RF] First 10 values: {first_10}")
+                print(f"🌲 RF input vector length: {len(features[0]) if len(features.shape) > 1 else len(features)}")
+                
                 prediction = self.rf_model.predict(features)[0]
+                proba = self.rf_model.predict_proba(features)[0]
+                confidence = max(proba)
+                
+                # 🎯 DIAGNOSTIC: Log RF prediction with confidence
+                print(f"[DEBUG][RF] Prediction: {prediction}")
+                print(f"🌲 RF prediction result: '{prediction}' (confidence: {confidence:.3f})")
                 
                 if prediction != self.last_prediction:
                     if (current_time - self.last_time) > self.COOLDOWN_TIME:
@@ -447,7 +530,7 @@ class SessionEngine:
             
             "sentence": {
                 "current": current_sentence,
-                "completed": self.sentence_completed,
+                "completed": self.completed_sentence,  # ✅ String de la oración completada
                 "just_completed": self._sentence_just_completed
             },
             

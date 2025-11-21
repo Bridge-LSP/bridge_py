@@ -40,10 +40,16 @@ class WebSocketConnectionManager:
         """Send state update to specific session."""
         if session_id in self.active_connections:
             try:
-                await self.active_connections[session_id].send_text(json.dumps(state_data))
+                json_data = json.dumps(state_data)
+                await self.active_connections[session_id].send_text(json_data)
+                # 🔥 DIAGNOSTIC: Confirm state was sent
+                print(f"📤 [WS] Sent state update | session: {session_id[:8]}... | letter: {state_data.get('detection', {}).get('letter', 'N/A')}")
             except Exception as e:
                 logger.error(f"Error sending state update to {session_id}: {e}")
+                print(f"❌ [WS] Failed to send state update: {e}")
                 self.disconnect(session_id)
+        else:
+            print(f"⚠️  [WS] Cannot send state - session not in active_connections: {session_id[:8]}...")
     
     def get_connection_count(self) -> int:
         """Get number of active connections."""
@@ -65,7 +71,18 @@ async def websocket_detection_endpoint(websocket: WebSocket, session_id: str):
     - State updates back to frontend
     """
     
+    # 🔥 DIAGNOSTIC: Log WebSocket connection attempt
+    print(f"🔥 [WS] Connection attempt for session: {session_id}")
+    logger.info(f"WebSocket connection attempt for session: {session_id}")
+    
+    # Check if BERT models are still loading
+    from engine_bridge.bert_model_loader import is_loading
+    if is_loading():
+        logger.warning(f"BERT models still loading, accepting connection with limited autocorrection")
+        # Don't block - just warn. Autocorrection will work without BERT if needed.
+    
     await connection_manager.connect(websocket, session_id)
+    print(f"✅ [WS] Connection accepted for session: {session_id}")
     session_manager = get_session_manager()
     
     # Initialize session with default preferences
@@ -80,8 +97,12 @@ async def websocket_detection_endpoint(websocket: WebSocket, session_id: str):
                 message = json.loads(data)
                 message_type = message.get("type")
                 
+                # 🔥 DIAGNOSTIC: Log every message received
+                print(f"🔥 [WS] Message received | type: {message_type} | session: {session_id[:8]}...")
+                
                 if message_type == "frame":
                     # Process frame message
+                    print(f"🔥 [WS] Processing FRAME message")
                     await handle_frame_message(session_id, message, session_engine)
                     
                 elif message_type == "control":
@@ -113,6 +134,9 @@ async def handle_frame_message(session_id: str, message: Dict[str, Any], session
         if not frame_base64:
             logger.warning(f"Frame message from {session_id} missing frameBase64")
             return
+        
+        # 🔥 DIAGNOSTIC: Confirm we're receiving frames
+        print(f"🔥 [ROUTER] Received frame for session {session_id[:8]}... | base64 length: {len(frame_base64)}")
         
         start_time = time.time()
         
