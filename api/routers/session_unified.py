@@ -54,7 +54,6 @@ async def init_session(
     the session configuration.
     """
     try:
-        # Check if BERT models are still loading
         from engine_bridge.bert_model_loader import is_loading
         if is_loading():
             raise HTTPException(
@@ -64,10 +63,8 @@ async def init_session(
         
         session_manager = get_session_manager()
         
-        # Generate session ID if not provided
         session_id = request.session_id or str(uuid.uuid4())
         
-        # Default preferences
         default_preferences = {
             "tts_enabled": True,
             "tts_muted": False,
@@ -78,15 +75,12 @@ async def init_session(
             "phrase_pause_ms": 8000
         }
         
-        # Merge with provided preferences
         if request.preferences:
             default_preferences.update(request.preferences)
         
-        # Add client token if provided
         if x_client_token:
             default_preferences["client_token"] = x_client_token
         
-        # Get or create session engine
         session_engine = session_manager.get_or_create_session(
             session_id=session_id,
             preferences=default_preferences
@@ -96,7 +90,6 @@ async def init_session(
         
         logger.info(f"Session initialized: {session_id}")
         
-        # Return current preferences from the engine
         current_preferences = {
             "tts_enabled": session_engine.tts_enabled,
             "tts_muted": session_engine.tts_muted,
@@ -107,7 +100,6 @@ async def init_session(
             "phrase_pause_ms": session_engine.phrase_pause_ms
         }
         
-        # Build WebSocket URL
         websocket_url = f"{WS_BASE_URL}/realtime/ws/detection/{session_id}"
         
         return SessionInitResponse(
@@ -140,12 +132,10 @@ async def update_session_preferences(
         if not session_engine:
             raise HTTPException(status_code=404, detail=f"Session {request.session_id} not found")
         
-        # Update preferences
         session_engine.update_preferences(request.preferences)
         
         logger.info(f"Preferences updated for session {request.session_id}")
         
-        # Return updated preferences
         current_preferences = {
             "tts_enabled": session_engine.tts_enabled,
             "tts_muted": session_engine.tts_muted,
@@ -184,10 +174,8 @@ async def get_session_status(session_id: str):
         if not session_engine:
             raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
         
-        # Get current state from engine
         state_data = session_engine._build_state_payload()
         
-        # Add session metadata
         state_data["session_exists"] = True
         state_data["is_running"] = session_engine.is_running
         
@@ -256,7 +244,6 @@ async def finalize_phrase(
         
         start_time = time.time()
         
-        # Manually finalize phrase
         state_data = session_engine.manual_finalize_phrase()
         
         processing_time_ms = int((time.time() - start_time) * 1000)
@@ -293,10 +280,8 @@ async def reset_session(
         if not session_engine:
             raise HTTPException(status_code=404, detail=f"Session {request.session_id} not found")
         
-        # Clear all state
         session_engine.clear_all()
         
-        # Get clean state
         state_data = session_engine._build_state_payload()
         
         logger.info(f"Session reset: {request.session_id}")

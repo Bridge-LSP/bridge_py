@@ -46,24 +46,20 @@ class SessionEngine:
         self.rf_model = rf_model
         self.lstm_model = lstm_model
         
-        # Check if BERT is still loading
         if is_loading():
             logger.warning(f"Session {session_id}: BERT models still loading, autocorrection may be limited")
         
-        # Initialize AutoCorrector instance for this session
         self.autocorrector = AutoCorrector()
         
-        # Running state and preferences
         self.is_running = False
         self.tts_enabled = True
         self.tts_muted = False
         self.text_language = "es"
         self.target_language = "en"
         self.auto_translate = False
-        self.word_pause_ms = 4000  # 4 seconds
-        self.phrase_pause_ms = 8000  # 8 seconds
+        self.word_pause_ms = 4000 
+        self.phrase_pause_ms = 8000
         
-        # Detection & timing state (from main.py)
         self.last_prediction: Optional[str] = None
         self.last_time = 0.0
         self.last_letter_time = 0.0
@@ -75,27 +71,22 @@ class SessionEngine:
         self.translated_sentence = ""
         self.translated_lang = ""
         
-        # LSTM-specific state
         self.lstm_buffer: Optional[deque] = None
         if self.lstm_model is not None:
-            self.lstm_buffer = deque(maxlen=30)  # SEQUENCE_LENGTH from main.py
+            self.lstm_buffer = deque(maxlen=30)
         
-        # Constants from main.py
         self.COOLDOWN_TIME = 1.0
         self.FEATURES_PER_FRAME = 63
         self.LABEL_MAP_LSTM = {0: 'j', 1: 'll', 2: 'rr', 3: 'z', 4: 'ny'}
         
-        # TTS state
         self.current_tts_audio: Optional[str] = None
         self.tts_audio_mime = "audio/mpeg"
         
-        # State tracking for "just_*" flags
         self._word_just_finished = False
         self._sentence_just_completed = False
         self._translation_just_completed = False
         self._tts_just_generated = False
         
-        # Apply preferences if provided
         if preferences:
             self.update_preferences(preferences)
             
@@ -127,12 +118,10 @@ class SessionEngine:
     
     def clear_all(self) -> None:
         """Clear all word buffer, sentence, translation, and TTS state."""
-        # Reset autocorrector state
         self.autocorrector.clear_buffer()
         if hasattr(self.autocorrector, 'sentence_words'):
             self.autocorrector.sentence_words.clear()
         
-        # Reset detection state
         self.last_prediction = None
         self.last_time = 0.0
         self.last_letter_time = 0.0
@@ -144,14 +133,11 @@ class SessionEngine:
         self.translated_sentence = ""
         self.translated_lang = ""
         
-        # Clear LSTM buffer if applicable
         if self.lstm_buffer is not None:
             self.lstm_buffer.clear()
         
-        # Clear TTS state
         self.current_tts_audio = None
         
-        # Reset "just_*" flags
         self._word_just_finished = False
         self._sentence_just_completed = False
         self._translation_just_completed = False
@@ -164,38 +150,26 @@ class SessionEngine:
         Core method called whenever a new frame arrives over WebSocket.
         Replicates the main detection loop from main.py.
         """
-        # 🎯 DIAGNOSTIC: Entry point
         print(f"📥 WS frame received | bytes: {len(frame_b64)}")
         
         current_time = time.time()
         
-        # If not running, just return current state
         if not self.is_running:
             return self._build_state_payload()
         
         try:
-            # Decode base64 frame
             image = self._decode_frame_base64(frame_b64)
             if image is None:
                 logger.warning(f"Session {self.session_id}: Invalid frame received")
                 return self._build_state_payload()
             
-            # Run MediaPipe hand detection
             results = self._run_mediapipe(image, current_time)
             
-            # Process detection results
             detected = False
             
-            # LSTM DISABLED: Only use Random Forest for stable single-frame detection
-            # LSTM requires proper sequence buffering which is not implemented yet
-            # if self.lstm_model is not None and self.lstm_buffer is not None:
-            #     detected = self._run_lstm_if_applicable(results, current_time)
-            
-            # Use Random Forest ONLY (like main.py which works perfectly)
             if results.hand_landmarks:
                 detected = self._run_rf_if_applicable(results, current_time)
             
-            # Run timeout logic for word and phrase completion
             self._check_word_timeout(current_time)
             self._check_phrase_timeout(current_time)
             
@@ -212,7 +186,6 @@ class SessionEngine:
             from api.services.frame_preprocessor import frame_preprocessor
             print("🟡 frame_preprocessor imported")
             
-            # Handle data URL prefix if present
             if frame_b64.startswith('data:image'):
                 print("🟣 Stripping data: prefix")
                 frame_b64 = frame_b64.split(',', 1)[1]
@@ -224,7 +197,6 @@ class SessionEngine:
             print(f"🟤 Preprocessor returned: {image.shape if image is not None else 'None'}")
             
             if image is not None:
-                # 🎯 DIAGNOSTIC: Save debug frame and log info
                 try:
                     cv2.imwrite("debug_ws_frame.jpg", image)
                     print(f"[DEBUG][WS] Saved frame to debug_ws_frame.jpg | shape={image.shape}, dtype={image.dtype}")
@@ -252,19 +224,15 @@ class SessionEngine:
         main.py flips directly from camera, but WebSocket frames come pre-processed.
         """
         try:
-            # 🎯 DIAGNOSTIC: Log input frame details
             print(f"[DEBUG][MP] Input frame shape for MediaPipe: {image.shape}, dtype={image.dtype}")
             logger.debug(f"Session {self.session_id}: MediaPipe input shape={image.shape}")
             
-            # Convert to RGB (NO FLIP - already done by frame_preprocessor if needed)
             rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             
-            # Create MediaPipe Image and run detection
-            timestamp = int(current_time * 1000)  # Convert to milliseconds
+            timestamp = int(current_time * 1000)
             mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
             results = self.hand_landmarker.detect_for_video(mp_image, timestamp)
             
-            # 🎯 DIAGNOSTIC: Log MediaPipe detection result
             if results and results.handedness:
                 print(f"[DEBUG][MP] MediaPipe detected {len(results.handedness)} hand(s)")
                 for idx, handedness in enumerate(results.handedness):
@@ -280,7 +248,6 @@ class SessionEngine:
                 hands_detected = len(results.hand_landmarks)
                 print(f"✋ MediaPipe: detected {hands_detected} hand(s)")
             
-            # Log detection results
             hands_detected = len(results.hand_landmarks) if results and results.hand_landmarks else 0
             logger.debug(f"Session {self.session_id}: MediaPipe detected {hands_detected} hand(s)")
             
@@ -291,31 +258,27 @@ class SessionEngine:
     
     def _run_lstm_if_applicable(self, results, current_time: float) -> bool:
         """Process LSTM detection if model is available and results contain landmarks."""
-        # Guard: Skip if LSTM model is not loaded (USE_LSTM=False)
         if self.lstm_model is None:
             return False
             
         if not results or not results.hand_world_landmarks:
             return False
         
-        # Guard: Skip if LSTM buffer is not initialized
         if self.lstm_buffer is None:
             return False
         
         try:
-            # Add frame features to LSTM buffer
             for landmarks in results.hand_world_landmarks:
                 frame_features = [coord for point in landmarks for coord in (point.x, point.y, point.z)]
                 self.lstm_buffer.append(frame_features)
             
-            # Check if buffer is full for prediction
             if len(self.lstm_buffer) == self.lstm_buffer.maxlen:
                 seq = np.array(self.lstm_buffer)
                 pred = self.lstm_model.predict(np.expand_dims(seq, axis=0), verbose=0)
                 pred_label = np.argmax(pred)
                 prob = float(pred[0][pred_label])
                 
-                if prob > 0.85:  # Confidence threshold from main.py
+                if prob > 0.85:
                     letra_lstm = self.LABEL_MAP_LSTM.get(pred_label, None)
                     if letra_lstm and letra_lstm != self.last_prediction:
                         if (current_time - self.last_time) > self.COOLDOWN_TIME:
@@ -332,11 +295,9 @@ class SessionEngine:
             return False
         
         try:
-            # Process each detected hand
             for idx, landmarks in enumerate(results.hand_world_landmarks):
                 features = self._extract_features(landmarks)
                 
-                # 🎯 DIAGNOSTIC: Log RF input details
                 flattened = features.flatten() if hasattr(features, 'flatten') else features
                 print(f"[DEBUG][RF] Input vector length: {len(flattened)}")
                 first_10 = flattened[:10].tolist() if hasattr(flattened, 'tolist') else list(flattened[:10])
@@ -347,7 +308,6 @@ class SessionEngine:
                 proba = self.rf_model.predict_proba(features)[0]
                 confidence = max(proba)
                 
-                # 🎯 DIAGNOSTIC: Log RF prediction with confidence
                 print(f"[DEBUG][RF] Prediction: {prediction}")
                 print(f"🌲 RF prediction result: '{prediction}' (confidence: {confidence:.3f})")
                 
@@ -367,11 +327,9 @@ class SessionEngine:
     def _accept_new_letter(self, letter: str, current_time: float, model: str) -> bool:
         """Accept a new detected letter and update state."""
         try:
-            # Clear completed sentence to start new one
             if self.sentence_completed:
                 self._clear_completed_sentence()
             
-            # Update state
             self.letra_actual = letter
             self.autocorrector.add_letter(letter.lower())
             self.last_prediction = letter.lower()
@@ -423,10 +381,8 @@ class SessionEngine:
                 
                 logger.info(f"Session {self.session_id}: Sentence completed: '{final_sentence}'")
                 
-                # Run translation if needed
                 self._run_translation_if_needed()
                 
-                # Prepare TTS audio if enabled
                 self._prepare_tts_audio()
         except Exception as e:
             logger.error(f"Session {self.session_id}: Error completing sentence: {e}")
@@ -455,13 +411,10 @@ class SessionEngine:
             return
         
         try:
-            # Use translated sentence if available, otherwise original
             text_to_speak = self.translated_sentence if self.translated_sentence else self.completed_sentence
             language = self.translated_lang if self.translated_sentence else self.text_language
             
             if text_to_speak:
-                # Generate TTS audio (assuming bridge_tts has a method to get base64)
-                # This is a placeholder - you may need to adapt based on your TTS implementation
                 audio_base64 = self._generate_tts_base64(text_to_speak, language)
                 if audio_base64:
                     self.current_tts_audio = audio_base64
@@ -473,11 +426,6 @@ class SessionEngine:
     def _generate_tts_base64(self, text: str, language: str) -> Optional[str]:
         """Generate TTS audio and return as base64. Placeholder implementation."""
         try:
-            # This is a placeholder - adapt based on your bridge_tts implementation
-            # You may need to modify bridge_tts to return audio data instead of playing directly
-            
-            # For now, returning None - you'll need to implement actual TTS to base64 conversion
-            # bridge_tts.speak_sentence_completion(text, language)
             return None
         except Exception as e:
             logger.error(f"Session {self.session_id}: TTS generation error: {e}")
@@ -497,20 +445,16 @@ class SessionEngine:
         current_time = time.time()
         time_since_last = current_time - self.last_letter_time if self.last_letter_time > 0 else 0
         
-        # Get current word state from autocorrector
         raw_word = ''.join(getattr(self.autocorrector, 'word_buffer', []))
         corrected_word = self.autocorrector.get_current_word_corrected() if hasattr(self.autocorrector, 'get_current_word_corrected') else raw_word
         
-        # Get current sentence
         current_sentence = ""
         if hasattr(self.autocorrector, 'sentence_words'):
             current_sentence = " ".join(self.autocorrector.sentence_words)
         
-        # Check if word/phrase timers should be active
         word_timer_active = bool(raw_word and not self.word_finalized)
         phrase_timer_active = bool(self.phrase_active)
         
-        # Build payload with current state and "just_*" flags
         payload = {
             "type": "state_update",
             "session_id": self.session_id,
@@ -518,8 +462,8 @@ class SessionEngine:
             
             "detection": {
                 "letter": self.letra_actual,
-                "confidence": None,  # Would need to be stored from detection
-                "model": "rf"  # Would need to track which model detected
+                "confidence": None,
+                "model": "rf"
             },
             
             "word": {
@@ -530,7 +474,7 @@ class SessionEngine:
             
             "sentence": {
                 "current": current_sentence,
-                "completed": self.completed_sentence,  # ✅ String de la oración completada
+                "completed": self.completed_sentence,
                 "just_completed": self._sentence_just_completed
             },
             
@@ -557,7 +501,6 @@ class SessionEngine:
             }
         }
         
-        # Reset "just_*" flags after building payload (they're only true for one frame)
         self._word_just_finished = False
         self._sentence_just_completed = False
         self._translation_just_completed = False

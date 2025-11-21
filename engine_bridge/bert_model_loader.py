@@ -25,23 +25,16 @@ from typing import Optional, Dict
 
 logger = logging.getLogger(__name__)
 
-# ============================================================================
-# CONFIGURATION
-# ============================================================================
-
 MODEL_NAME = "dccuchile/bert-base-spanish-wwm-uncased"
-DEFAULT_CACHE_DIR = "./hf-cache"  # Development default
-PRODUCTION_CACHE_DIR = "/app/hf-cache"  # Production container path
+DEFAULT_CACHE_DIR = "./hf-cache"
+PRODUCTION_CACHE_DIR = "/app/hf-cache"
 
-# Retry configuration
 MAX_RETRIES = 3
 RETRY_INTERVAL_SECONDS = 1.0
 
-# Detect environment
 ENV = os.environ.get("ENV", "dev").lower()
 IS_PRODUCTION = ENV in ("prod", "production")
 
-# Determine cache directory
 if IS_PRODUCTION:
     CACHE_DIR = os.environ.get("HF_CACHE_DIR", PRODUCTION_CACHE_DIR)
 else:
@@ -51,10 +44,6 @@ logger.info(f"[BERT MODEL LOADER] Environment: {ENV}")
 logger.info(f"[BERT MODEL LOADER] Production mode: {IS_PRODUCTION}")
 logger.info(f"[BERT MODEL LOADER] Cache directory: {CACHE_DIR}")
 
-# ============================================================================
-# GLOBAL MODEL INSTANCES (loaded once)
-# ============================================================================
-
 _TOKENIZER: Optional[object] = None
 _MODEL: Optional[object] = None
 _PIPELINE: Optional[object] = None
@@ -62,11 +51,7 @@ _LOAD_SUCCESS: bool = False
 _LOAD_ERROR: Optional[str] = None
 _LOADING: bool = False
 _NETWORK_FALLBACK_USED: bool = False
-_LOADING_MODE: str = "not-started"  # "not-started" | "loading" | "cache-only" | "network-fallback" | "failed"
-
-# ============================================================================
-# MODEL LOADING FUNCTIONS
-# ============================================================================
+_LOADING_MODE: str = "not-started" 
 
 def _ensure_cache_dir_exists():
     """Create cache directory if it doesn't exist."""
@@ -106,17 +91,14 @@ def _attempt_model_load(local_files_only: bool, attempt_num: int) -> bool:
         mode_str = "cache-only" if local_files_only else "network-enabled"
         logger.info(f"[BERT MODEL LOADER] Attempt {attempt_num}: Loading with mode={mode_str}")
         
-        # Load tokenizer
         logger.info(f"[BERT MODEL LOADER] Loading tokenizer...")
         _TOKENIZER = AutoTokenizer.from_pretrained(MODEL_NAME, **load_kwargs)
         logger.info("[BERT MODEL LOADER] ✅ Tokenizer loaded")
         
-        # Load model
         logger.info(f"[BERT MODEL LOADER] Loading model...")
         _MODEL = AutoModelForMaskedLM.from_pretrained(MODEL_NAME, **load_kwargs)
         logger.info("[BERT MODEL LOADER] ✅ Model loaded")
         
-        # Create pipeline
         logger.info("[BERT MODEL LOADER] Creating pipeline...")
         _PIPELINE = pipeline('fill-mask', model=_MODEL, tokenizer=_TOKENIZER)
         logger.info("[BERT MODEL LOADER] ✅ Pipeline created")
@@ -133,7 +115,6 @@ def _attempt_model_load(local_files_only: bool, attempt_num: int) -> bool:
         return True
         
     except (FileNotFoundError, OSError) as e:
-        # Cache miss or file system error
         error_str = str(e)
         if "429" in error_str or "rate" in error_str.lower():
             logger.warning(f"[BERT MODEL LOADER] Attempt {attempt_num}: Rate limit detected")
@@ -147,7 +128,6 @@ def _attempt_model_load(local_files_only: bool, attempt_num: int) -> bool:
         return False
         
     except Exception as e:
-        # Network errors, timeouts, connection issues
         error_str = str(e)
         error_type = type(e).__name__
         
@@ -183,7 +163,6 @@ def _load_models_with_fallback():
         logger.info(f"[BERT MODEL LOADER] 🚀 Starting model load: {MODEL_NAME}")
         _ensure_cache_dir_exists()
         
-        # PHASE 1: Try cache-only mode first
         logger.info("[BERT MODEL LOADER] PHASE 1: Attempting cache-only load...")
         if _attempt_model_load(local_files_only=True, attempt_num=1):
             _LOADING_MODE = "cache-only"
@@ -191,7 +170,6 @@ def _load_models_with_fallback():
             logger.info("[BERT MODEL LOADER] 🎉 SUCCESS: Models loaded from cache")
             return
         
-        # PHASE 2: Cache failed, try network fallback with retries
         logger.warning("[BERT MODEL LOADER] PHASE 2: Cache failed, attempting network fallback...")
         
         for attempt in range(1, MAX_RETRIES + 1):
@@ -207,7 +185,6 @@ def _load_models_with_fallback():
                 logger.info(f"[BERT MODEL LOADER] Retrying in {RETRY_INTERVAL_SECONDS}s...")
                 time.sleep(RETRY_INTERVAL_SECONDS)
         
-        # PHASE 3: All retries exhausted - CATASTROPHIC FAILURE
         _LOADING_MODE = "failed"
         _LOADING = False
         _LOAD_SUCCESS = False
@@ -231,10 +208,8 @@ def _load_models_with_fallback():
         raise RuntimeError(error_msg)
         
     except RuntimeError:
-        # Re-raise our own runtime errors
         raise
     except Exception as e:
-        # Unexpected catastrophic error
         _LOADING = False
         _LOADING_MODE = "failed"
         _LOAD_SUCCESS = False
@@ -254,12 +229,6 @@ def _background_load_models():
         _load_models_with_fallback()
     except Exception as e:
         logger.error(f"[BERT MODEL LOADER] Background loading failed: {e}")
-        # Don't raise - let the status endpoint report the error
-
-
-# ============================================================================
-# PUBLIC API
-# ============================================================================
 
 def get_bert_tokenizer():
     """
@@ -363,12 +332,6 @@ def start_background_loading():
     thread = threading.Thread(target=_background_load_models, daemon=True)
     thread.start()
 
-
-# ============================================================================
-# INITIALIZATION
-# ============================================================================
-
-# DO NOT auto-load at import time - wait for explicit start_background_loading() call
 logger.info("[BERT MODEL LOADER] ⏳ Module initialized - awaiting background load trigger")
 logger.info(f"[BERT MODEL LOADER] Model: {MODEL_NAME}")
 logger.info(f"[BERT MODEL LOADER] Cache: {CACHE_DIR}")

@@ -4,7 +4,6 @@ import time
 from .autocorrector_storage import AutoCorrectorStorage
 from .autocorrector_analytics import AutoCorrectorAnalytics
 
-# Import global BERT models (loaded once at startup)
 from engine_bridge.bert_model_loader import (
     get_bert_tokenizer,
     get_bert_model,
@@ -31,7 +30,6 @@ class AutoCorrector:
         self.model_loaded = is_bert_available()
         
         if not self.model_loaded:
-            # Models not available - autocorrector will work without BERT
             pass
 
     def add_letter(self, letter):

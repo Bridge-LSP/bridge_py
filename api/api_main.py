@@ -99,7 +99,6 @@ async def root():
 @app.on_event("startup")
 async def startup_event():
     try:
-        # CRITICAL: Start BERT model loading in background (non-blocking)
         print("🚀 [STARTUP] Starting BERT model loading in background...")
         from engine_bridge.bert_model_loader import start_background_loading
         start_background_loading()
@@ -128,7 +127,7 @@ async def periodic_cleanup():
     
     while True:
         try:
-            await asyncio.sleep(600)  # 10 minutes
+            await asyncio.sleep(600)
             session_manager = get_session_manager()
             cleaned_count = session_manager.cleanup_inactive_sessions()
             pass
@@ -150,11 +149,9 @@ app.include_router(text_to_speech.router, tags=["text-to-speech"])
 app.include_router(autocorrector.router, prefix="/autocorrector", tags=["autocorrector"])
 app.include_router(translation.router, tags=["translation"])
 
-# SessionEngine-based endpoints (new architecture)
 app.include_router(realtime_websocket.router, prefix="/realtime", tags=["realtime-sessionengine"])
 app.include_router(session_unified.router, prefix="/session", tags=["session-unified"])
 
-# Legacy endpoints (deprecated, will be removed)
 app.include_router(websocket_detection.router, prefix="/realtime", tags=["realtime-websocket-legacy"])
 app.include_router(realtime_detection.router, prefix="/realtime", tags=["realtime-hardened-legacy"])
 app.include_router(timer_management.router, prefix="/timers", tags=["timer-management-legacy"])

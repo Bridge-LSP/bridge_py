@@ -58,7 +58,6 @@ async def auto_calibrate(request: CalibrateRequest):
     Returns the recommended configuration based on hand detection confidence.
     """
     try:
-        # Decode image
         image_bytes = base64.b64decode(request.image_base64)
         nparr = np.frombuffer(image_bytes, np.uint8)
         image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -66,16 +65,13 @@ async def auto_calibrate(request: CalibrateRequest):
         if image is None:
             raise HTTPException(status_code=400, detail="Invalid image data")
         
-        # Import hand tracker
         from engine_bridge.hand_tracker import create_hand_tracker
         tracker = create_hand_tracker()
         
-        # Test all transformation combinations
         transformations = []
         for flip_h in [False, True]:
             for flip_v in [False, True]:
                 for rotation in [0, 90, 180, 270]:
-                    # Apply transformation
                     test_frame = image.copy()
                     
                     if flip_h:
@@ -89,16 +85,13 @@ async def auto_calibrate(request: CalibrateRequest):
                     elif rotation == 270:
                         test_frame = cv2.rotate(test_frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
                     
-                    # Test with MediaPipe
                     rgb_frame = cv2.cvtColor(test_frame, cv2.COLOR_BGR2RGB)
                     results = tracker.process(rgb_frame)
                     
-                    # Calculate confidence
                     confidence = 0
                     hands_detected = 0
                     if results and results.hand_landmarks:
                         hands_detected = len(results.hand_landmarks)
-                        # Use number of hands as primary metric
                         confidence = hands_detected
                     
                     transformations.append({
@@ -109,7 +102,6 @@ async def auto_calibrate(request: CalibrateRequest):
                         "hands_detected": hands_detected
                     })
         
-        # Find best transformation
         best = max(transformations, key=lambda t: t["confidence"])
         
         if best["confidence"] == 0:
@@ -119,7 +111,6 @@ async def auto_calibrate(request: CalibrateRequest):
                 "all_results": transformations
             }
         
-        # Apply best configuration
         frame_preprocessor.configure(
             flip_h=best["flip_h"],
             flip_v=best["flip_v"],

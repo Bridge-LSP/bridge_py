@@ -11,7 +11,6 @@ import socket
 def get_local_ipv4() -> str:
     """Get the local IPv4 address of the machine."""
     try:
-        # Create a socket connection to determine local IP
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
         local_ip = s.getsockname()[0]
@@ -33,15 +32,12 @@ def get_websocket_base_url() -> str:
     Returns:
         WebSocket base URL (e.g., "ws://192.168.1.100:8000")
     """
-    # Check environment variable first
     env_ip = os.environ.get("BRIDGE_WS_IPV4")
     if env_ip:
         return f"ws://{env_ip}:8000"
     
-    # Auto-detect local IP for development
     local_ip = get_local_ipv4()
     return f"ws://{local_ip}:8000"
 
 
-# Expose as constant
 WS_BASE_URL = get_websocket_base_url()

@@ -36,7 +36,6 @@ class ConnectionManager:
         start_time = time.time()
         
         try:
-            # Stage 1: Base64 decoding
             try:
                 image_data = base64.b64decode(frame_data)
             except Exception as e:
@@ -49,7 +48,6 @@ class ConnectionManager:
                 }))
                 return
             
-            # Stage 2: Preprocessing (decode + flip/rotate)
             try:
                 image = frame_preprocessor.decode_and_preprocess(image_data)
                 
@@ -75,7 +73,6 @@ class ConnectionManager:
                 }))
                 return
 
-            # Stage 3: Convert to RGB and MediaPipe format
             try:
                 rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                 mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_image)
@@ -89,7 +86,6 @@ class ConnectionManager:
                 }))
                 return
 
-            # Stage 4: MediaPipe hand detection
             try:
                 results = self.landmarker.detect(mp_image)
             except Exception as e:
@@ -102,7 +98,6 @@ class ConnectionManager:
                 }))
                 return
 
-            # Stage 5: Random Forest prediction
             response = {
                 "predictions": [],
                 "timestamp": time.time(),
@@ -129,7 +124,6 @@ class ConnectionManager:
                             })
                     except Exception as e:
                         logger.error(f"[{client_id}] RF prediction error for hand {idx}: {str(e)}")
-                        # Continue processing other hands
 
             processing_time = (time.time() - start_time) * 1000
             response["processing_time_ms"] = round(processing_time, 2)
@@ -137,7 +131,6 @@ class ConnectionManager:
             await websocket.send_text(json.dumps(response))
 
         except Exception as e:
-            # Catch-all for unexpected errors
             error_msg = f"Unexpected error in frame processing: {str(e)}"
             logger.error(f"[{client_id}] {error_msg}")
             logger.error(f"[{client_id}] Full traceback:\n{traceback.format_exc()}")
@@ -149,7 +142,6 @@ class ConnectionManager:
                     "timestamp": time.time()
                 }))
             except:
-                # WebSocket might be closed
                 logger.error(f"[{client_id}] Failed to send error response - connection may be closed")
 
 manager = ConnectionManager()

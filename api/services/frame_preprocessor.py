@@ -3,13 +3,7 @@ import numpy as np
 from typing import Tuple, Optional, Dict
 import time
 
-# ============================================================================
-# BYPASS MODE FOR DEBUGGING
-# ============================================================================
-# Set to True to bypass ALL preprocessing and pass frames directly to MediaPipe
-# This helps diagnose if preprocessing is causing detection failures
 BYPASS_PREPROCESSOR = False
-# ============================================================================
 
 class FramePreprocessor:
     """
@@ -23,10 +17,9 @@ class FramePreprocessor:
     """
     
     def __init__(self):
-        # DEFAULT: Match main.py behavior (horizontal flip for mirror effect)
-        self.flip_horizontal = True  # Match main.py's cv2.flip(frame, 1)
+        self.flip_horizontal = True
         self.flip_vertical = False
-        self.rotation_angle = 0  # 0, 90, 180, 270
+        self.rotation_angle = 180
         self.normalization_enabled = False
         self.target_size = (640, 480)
         self.diagnostics_enabled = False
@@ -36,7 +29,7 @@ class FramePreprocessor:
         self.failed_decodes = 0
         self.preprocessing_time_ms = []
         
-        print(f"[FramePreprocessor] Initialized with flip_horizontal={self.flip_horizontal} (matches main.py)")
+        print(f"[FramePreprocessor] Initialized with flip_horizontal={self.flip_horizontal}, rotation={self.rotation_angle}° (FIX: frontend upside-down frames)")
     
     def configure(self, flip_h: bool = False, flip_v: bool = False, 
                   rotation: int = 0, normalize: bool = False):
@@ -65,7 +58,6 @@ class FramePreprocessor:
             
             self.successful_decodes += 1
             
-            # BYPASS MODE: Skip all transformations for debugging
             if BYPASS_PREPROCESSOR:
                 if self.diagnostics_enabled:
                     print(f"[FramePreprocessor] BYPASS MODE: Returning raw frame shape={image.shape}")
