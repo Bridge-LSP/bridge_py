@@ -99,10 +99,24 @@ async def root():
 @app.on_event("startup")
 async def startup_event():
     try:
+        print("🚀 [STARTUP] Starting BERT model loading in background...")
+        from engine_bridge.bert_model_loader import start_background_loading
+        start_background_loading()
+        print("✅ [STARTUP] BERT background loading initiated")
+        
+        print("🚀 [STARTUP] Initializing session manager...")
         from engine_bridge.session_manager import initialize_session_manager
         session_manager = initialize_session_manager()
+        print(f"✅ [STARTUP] Session manager initialized")
+        
+        print("🚀 [STARTUP] Starting periodic cleanup task...")
         asyncio.create_task(periodic_cleanup())
+        print("✅ [STARTUP] FastAPI startup complete (<200ms)")
+        print("ℹ️  [STARTUP] BERT models loading in background - check /bert/status")
     except Exception as e:
+        print(f"❌ [STARTUP] Error during startup: {e}")
+        import traceback
+        traceback.print_exc()
         raise
 
 
@@ -113,7 +127,7 @@ async def periodic_cleanup():
     
     while True:
         try:
-            await asyncio.sleep(600)  # 10 minutes
+            await asyncio.sleep(600)
             session_manager = get_session_manager()
             cleaned_count = session_manager.cleanup_inactive_sessions()
             pass
@@ -135,11 +149,9 @@ app.include_router(text_to_speech.router, tags=["text-to-speech"])
 app.include_router(autocorrector.router, prefix="/autocorrector", tags=["autocorrector"])
 app.include_router(translation.router, tags=["translation"])
 
-# SessionEngine-based endpoints (new architecture)
 app.include_router(realtime_websocket.router, prefix="/realtime", tags=["realtime-sessionengine"])
 app.include_router(session_unified.router, prefix="/session", tags=["session-unified"])
 
-# Legacy endpoints (deprecated, will be removed)
 app.include_router(websocket_detection.router, prefix="/realtime", tags=["realtime-websocket-legacy"])
 app.include_router(realtime_detection.router, prefix="/realtime", tags=["realtime-hardened-legacy"])
 app.include_router(timer_management.router, prefix="/timers", tags=["timer-management-legacy"])
@@ -155,3 +167,24 @@ if NEW_ROUTERS_AVAILABLE:
 @app.get("/health")
 async def health():
     return {"message": "Bridge API is running! 🌉"}
+
+
+@app.get("/bert/status", tags=["bert-health"])
+async def bert_status():
+    """
+    Get BERT model loading status.
+    
+    Frontend can poll this endpoint to check if models are ready.
+    WebSocket clients should wait until loaded=true before connecting.
+    
+    Returns:
+        loaded: bool - True if models are ready to use
+        loading: bool - True if currently loading
+        mode: str - Current loading mode (loading, cache-only, network-fallback, failed)
+        model_name: str - HuggingFace model identifier
+        cache_path: str - Local cache directory path
+        network_fallback_used: bool - True if network was used (cache miss)
+        error: str | None - Error message if loading failed
+    """
+    from engine_bridge.bert_model_loader import get_model_info
+    return get_model_info()

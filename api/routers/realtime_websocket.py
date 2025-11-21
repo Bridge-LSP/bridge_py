@@ -9,6 +9,8 @@ import json
 import logging
 import asyncio
 import time
+import cv2
+import numpy as np
 from typing import Dict, Any
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
@@ -40,17 +42,21 @@ class WebSocketConnectionManager:
         """Send state update to specific session."""
         if session_id in self.active_connections:
             try:
-                await self.active_connections[session_id].send_text(json.dumps(state_data))
+                json_data = json.dumps(state_data)
+                await self.active_connections[session_id].send_text(json_data)
+                print(f"📤 [WS] Sent state update | session: {session_id[:8]}... | letter: {state_data.get('detection', {}).get('letter', 'N/A')}")
             except Exception as e:
                 logger.error(f"Error sending state update to {session_id}: {e}")
+                print(f"❌ [WS] Failed to send state update: {e}")
                 self.disconnect(session_id)
+        else:
+            print(f"⚠️  [WS] Cannot send state - session not in active_connections: {session_id[:8]}...")
     
     def get_connection_count(self) -> int:
         """Get number of active connections."""
         return len(self.active_connections)
 
 
-# Global connection manager
 connection_manager = WebSocketConnectionManager()
 
 
@@ -65,40 +71,45 @@ async def websocket_detection_endpoint(websocket: WebSocket, session_id: str):
     - State updates back to frontend
     """
     
+    print(f"🔥 [WS] Connection attempt for session: {session_id}")
+    logger.info(f"WebSocket connection attempt for session: {session_id}")
+    
+    from engine_bridge.bert_model_loader import is_loading
+    if is_loading():
+        logger.warning(f"BERT models still loading, accepting connection with limited autocorrection")
+    
     await connection_manager.connect(websocket, session_id)
+    print(f"✅ [WS] Connection accepted for session: {session_id}")
     session_manager = get_session_manager()
     
-    # Initialize session with default preferences
     session_engine = session_manager.get_or_create_session(session_id)
     
     try:
         while True:
-            # Receive message from client
             data = await websocket.receive_text()
             
             try:
                 message = json.loads(data)
                 message_type = message.get("type")
                 
+                print(f"🔥 [WS] Message received | type: {message_type} | session: {session_id[:8]}...")
+                
                 if message_type == "frame":
-                    # Process frame message
+                    print(f"🔥 [WS] Processing FRAME message")
                     await handle_frame_message(session_id, message, session_engine)
                     
                 elif message_type == "control":
-                    # Process control message
                     await handle_control_message(session_id, message, session_engine)
                     
                 else:
                     logger.warning(f"Unknown message type from {session_id}: {message_type}")
                     
             except json.JSONDecodeError:
-                # Legacy support: treat raw base64 as frame data
                 await handle_legacy_frame(session_id, data, session_engine)
                 
     except WebSocketDisconnect:
         logger.info(f"WebSocket disconnected: {session_id}")
         connection_manager.disconnect(session_id)
-        # Stop the session when client disconnects
         session_engine.set_running(False)
         
     except Exception as e:
@@ -110,23 +121,22 @@ async def handle_frame_message(session_id: str, message: Dict[str, Any], session
     """Handle frame processing message."""
     try:
         frame_base64 = message.get("frameBase64")
-        if not frame_base64:
-            logger.warning(f"Frame message from {session_id} missing frameBase64")
+        # Optimización 1: Validar frameBase64 antes de procesamiento
+        if not frame_base64 or not frame_base64.startswith("data:image"):
+            logger.warning(f"Frame message from {session_id} invalid frameBase64 (empty or wrong format)")
             return
+        
+        print(f"🔥 [ROUTER] Received frame for session {session_id[:8]}... | base64 length: {len(frame_base64)}")
         
         start_time = time.time()
         
-        # Process frame through session engine
         state_data = session_engine.process_frame_base64(frame_base64)
         
-        # Add processing time
         processing_time_ms = (time.time() - start_time) * 1000
         state_data["processing_time_ms"] = round(processing_time_ms, 2)
         
-        # Send state update back to client
         await connection_manager.send_state_update(session_id, state_data)
         
-        # Log slow frames
         if processing_time_ms > 100:
             logger.warning(f"Slow frame processing for {session_id}: {processing_time_ms:.1f}ms")
             
@@ -148,6 +158,19 @@ async def handle_control_message(session_id: str, message: Dict[str, Any], sessi
             session_engine.set_running(False)
             logger.info(f"Session {session_id}: Stopped detection")
             
+            # Limpieza del debug frame al detener la detección
+            try:
+                import os
+                import numpy as np
+                debug_frame_path = "debug_ws_frame.jpg"
+                if os.path.exists(debug_frame_path):
+                    # Crear un frame vacío (negro) para sobrescribir
+                    empty_frame = np.zeros((720, 480, 3), dtype=np.uint8)
+                    cv2.imwrite(debug_frame_path, empty_frame)
+                    logger.info(f"🧹 Debug frame cleaned (overwritten with empty frame) for session {session_id}")
+            except Exception as e:
+                logger.warning(f"Failed to clean debug frame: {e} (non-critical)")
+            
         elif action == "update_preferences":
             session_engine.update_preferences(payload)
             logger.info(f"Session {session_id}: Updated preferences")
@@ -160,7 +183,6 @@ async def handle_control_message(session_id: str, message: Dict[str, Any], sessi
             logger.warning(f"Unknown control action from {session_id}: {action}")
             return
         
-        # Send updated state back to client
         state_data = session_engine._build_state_payload()
         await connection_manager.send_state_update(session_id, state_data)
         
@@ -173,14 +195,11 @@ async def handle_legacy_frame(session_id: str, frame_data: str, session_engine) 
     try:
         start_time = time.time()
         
-        # Process frame through session engine
         state_data = session_engine.process_frame_base64(frame_data)
         
-        # Add processing time
         processing_time_ms = (time.time() - start_time) * 1000
         state_data["processing_time_ms"] = round(processing_time_ms, 2)
         
-        # Send state update back to client
         await connection_manager.send_state_update(session_id, state_data)
         
     except Exception as e:

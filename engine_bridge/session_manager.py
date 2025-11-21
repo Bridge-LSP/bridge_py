@@ -5,6 +5,9 @@ This module manages the lifecycle of user sessions, shared ML models,
 and MediaPipe resources to avoid reloading models per session.
 """
 
+
+USE_LSTM = False
+
 import time
 import threading
 import logging
@@ -27,19 +30,17 @@ class SessionManager:
     def __init__(self, 
                  rf_model_path: str = 'models/forest_model_u.pkl',
                  lstm_model_path: str = 'models/lstm_model.h5',
-                 session_ttl_seconds: int = 3600):  # 1 hour TTL
+                 session_ttl_seconds: int = 3600):
         
         self.sessions: Dict[str, SessionEngine] = {}
         self.session_last_activity: Dict[str, float] = {}
         self.session_ttl = session_ttl_seconds
         self._lock = threading.RLock()
         
-        # Load shared ML models once
         self.hand_landmarker = None
         self.rf_model = None
         self.lstm_model = None
         
-        # Initialize models
         self._load_models(rf_model_path, lstm_model_path)
         
         logger.info("SessionManager initialized with shared models")
@@ -47,25 +48,34 @@ class SessionManager:
     def _load_models(self, rf_model_path: str, lstm_model_path: str) -> None:
         """Load shared ML models once at startup."""
         try:
-            # Load MediaPipe hand landmarker
             self.hand_landmarker = create_hand_landmarker(running_mode="VIDEO")
             logger.info("✅ MediaPipe hand landmarker loaded")
             
-            # Load Random Forest model
             self.rf_model = joblib.load(rf_model_path)
             logger.info("✅ Random Forest model loaded")
             
-            # Try to load LSTM model if available
+            # Optimización 2: RF warm-up - ejecutar predicción vacía para evitar primera predicción lenta
             try:
-                import tensorflow as tf
-                self.lstm_model = tf.keras.models.load_model(lstm_model_path)
-                logger.info("✅ LSTM model loaded")
-            except ImportError:
-                logger.warning("⚠️ TensorFlow not available. LSTM model disabled.")
-                self.lstm_model = None
+                import numpy as np
+                self.rf_model.predict(np.zeros((1, 63)))
+                logger.info("🔥 Random Forest warm-up completed")
             except Exception as e:
-                logger.warning(f"⚠️ Could not load LSTM model: {e}. Using RF only.")
+                logger.warning(f"RF warm-up failed (non-critical): {e}")
+            
+            if USE_LSTM:
+                try:
+                    import tensorflow as tf
+                    self.lstm_model = tf.keras.models.load_model(lstm_model_path)
+                    logger.info("✅ LSTM model loaded (dynamic gestures: j, ll, rr, z, ñ)")
+                except ImportError:
+                    logger.warning("⚠️ TensorFlow not available. LSTM model disabled.")
+                    self.lstm_model = None
+                except Exception as e:
+                    logger.warning(f"⚠️ Could not load LSTM model: {e}. Using RF only.")
+                    self.lstm_model = None
+            else:
                 self.lstm_model = None
+                logger.info("🔧 LSTM disabled (RF-only mode) - Set USE_LSTM=True to re-enable")
                 
         except Exception as e:
             logger.error(f"❌ Error loading models: {e}")
@@ -76,10 +86,8 @@ class SessionManager:
         with self._lock:
             current_time = time.time()
             
-            # Update activity time
             self.session_last_activity[session_id] = current_time
             
-            # Return existing session if found
             if session_id in self.sessions:
                 engine = self.sessions[session_id]
                 if preferences:
@@ -87,7 +95,6 @@ class SessionManager:
                 logger.debug(f"Retrieved existing session: {session_id}")
                 return engine
             
-            # Create new session
             engine = SessionEngine(
                 session_id=session_id,
                 hand_landmarker=self.hand_landmarker,
@@ -105,7 +112,6 @@ class SessionManager:
         """Get existing session without creating a new one."""
         with self._lock:
             if session_id in self.sessions:
-                # Update activity time
                 self.session_last_activity[session_id] = time.time()
                 return self.sessions[session_id]
             return None
@@ -182,7 +188,6 @@ class SessionManager:
             logger.info(f"Cleared all {session_count} sessions")
 
 
-# Global session manager instance
 session_manager: Optional[SessionManager] = None
 
 
