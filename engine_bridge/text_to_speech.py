@@ -133,4 +133,36 @@ class RealtimeTTS:
             "engine_ready": self.engine is not None
         }
 
+    def generate_audio_base64(self, text: str, language: str) -> Optional[str]:
+        """Generate TTS audio and return as base64 string."""
+        import base64
+        
+        try:
+            self._set_voice_for_language(language)
+
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
+            temp_path = temp_file.name
+            temp_file.close()
+
+            self.engine.save_to_file(text, temp_path)
+            self.engine.runAndWait()
+
+            if os.path.exists(temp_path):
+                with open(temp_path, 'rb') as audio_file:
+                    audio_bytes = audio_file.read()
+                    audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
+                
+                try:
+                    os.unlink(temp_path)
+                except:
+                    pass
+                
+                return f"data:audio/wav;base64,{audio_base64}"
+            
+            return None
+            
+        except Exception as e:
+            print(f"Error generating TTS base64: {e}")
+            return None
+
 bridge_tts = RealtimeTTS()

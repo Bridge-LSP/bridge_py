@@ -14,6 +14,7 @@ import logging
 from typing import Optional, Dict, Any, List
 from collections import deque
 import mediapipe as mp
+from threading import Timer
 
 from engine_bridge.autocorrector.autocorrector_core import AutoCorrector
 from engine_bridge.hand_tracker import create_hand_landmarker
@@ -51,14 +52,22 @@ class SessionEngine:
         
         self.autocorrector = AutoCorrector()
         
+        # Performance optimization: Pre-allocate Random Forest feature buffer
+        # 21 landmarks * 3 coordinates (x, y, z) = 63 features
+        self._rf_feature_buffer = np.zeros((1, 63), dtype=np.float32)
+        
         self.is_running = False
         self.tts_enabled = True
         self.tts_muted = False
         self.text_language = "es"
         self.target_language = "en"
         self.auto_translate = False
-        self.word_pause_ms = 4000 
-        self.phrase_pause_ms = 8000
+        self.word_pause_ms = 3000 
+        self.phrase_pause_ms = 5000
+        
+        # Background timer for timeout checking
+        self._timeout_timer = None
+        self._timer_interval = 1.0  # Check every 1 second
         
         self.last_prediction: Optional[str] = None
         self.last_time = 0.0
@@ -91,6 +100,9 @@ class SessionEngine:
             self.update_preferences(preferences)
             
         logger.info(f"SessionEngine initialized for session {session_id}")
+        
+        # Iniciar timer de background para timeouts
+        self._start_background_timer()
     
     def update_preferences(self, preferences: Dict) -> None:
         """Update session preferences without affecting current state."""
@@ -182,6 +194,12 @@ class SessionEngine:
     def _decode_frame_base64(self, frame_b64: str) -> Optional[np.ndarray]:
         """Decode base64 frame to OpenCV image with centralized preprocessing."""
         print("🟢 _decode_frame_base64 ENTERED")
+        
+        # Optimización 1: Validar frameBase64 antes de decodificar
+        if not frame_b64 or not frame_b64.startswith("data:image"):
+            print("❌ Invalid frameBase64: empty or missing data:image prefix")
+            return None
+            
         try:
             from api.services.frame_preprocessor import frame_preprocessor
             print("🟡 frame_preprocessor imported")
@@ -197,10 +215,16 @@ class SessionEngine:
             print(f"🟤 Preprocessor returned: {image.shape if image is not None else 'None'}")
             
             if image is not None:
+                # Controlar guardado de debug frame con variable de entorno
                 try:
-                    cv2.imwrite("debug_ws_frame.jpg", image)
-                    print(f"[DEBUG][WS] Saved frame to debug_ws_frame.jpg | shape={image.shape}, dtype={image.dtype}")
-                    print(f"[DEBUG][WS] Pixel stats: min={image.min()}, max={image.max()}, mean={image.mean():.2f}")
+                    import os
+                    debug_enabled = os.getenv("BRIDGE_DEBUG_FRAMES", "true").lower() == "true"
+                    if debug_enabled:
+                        cv2.imwrite("debug_ws_frame.jpg", image)
+                        print(f"[DEBUG][WS] Saved frame to debug_ws_frame.jpg | shape={image.shape}, dtype={image.dtype}")
+                        print(f"[DEBUG][WS] Pixel stats: min={image.min()}, max={image.max()}, mean={image.mean():.2f}")
+                    else:
+                        print(f"[DEBUG][WS] Debug frame saving disabled via BRIDGE_DEBUG_FRAMES=false")
                 except Exception as e:
                     print(f"[DEBUG][WS] Error saving debug frame: {e}")
                 
@@ -321,8 +345,19 @@ class SessionEngine:
             return False
     
     def _extract_features(self, landmarks) -> np.ndarray:
-        """Extract features from hand landmarks for Random Forest model."""
-        return extract_features(landmarks)
+        """Extract features from hand landmarks for Random Forest model.
+        
+        Optimized version using pre-allocated buffer to avoid memory allocation overhead.
+        """
+        # Use pre-allocated buffer instead of creating new arrays
+        feature_idx = 0
+        for lm in landmarks:
+            self._rf_feature_buffer[0, feature_idx] = lm.x
+            self._rf_feature_buffer[0, feature_idx + 1] = lm.y  
+            self._rf_feature_buffer[0, feature_idx + 2] = lm.z
+            feature_idx += 3
+        
+        return self._rf_feature_buffer
     
     def _accept_new_letter(self, letter: str, current_time: float, model: str) -> bool:
         """Accept a new detected letter and update state."""
@@ -407,7 +442,9 @@ class SessionEngine:
     
     def _prepare_tts_audio(self) -> None:
         """Prepare TTS audio if enabled and not muted."""
+        logger.debug(f"🔊 TTS check: enabled={self.tts_enabled}, muted={self.tts_muted}")
         if not self.tts_enabled or self.tts_muted:
+            logger.warning(f"🔇 TTS skipped: enabled={self.tts_enabled}, muted={self.tts_muted}")
             return
         
         try:
@@ -424,9 +461,20 @@ class SessionEngine:
             logger.error(f"Session {self.session_id}: TTS preparation error: {e}")
     
     def _generate_tts_base64(self, text: str, language: str) -> Optional[str]:
-        """Generate TTS audio and return as base64. Placeholder implementation."""
+        """Generate TTS audio and return as base64."""
         try:
-            return None
+            logger.info(f"🔊 Generating TTS for: '{text}' in language: {language}")
+            
+            # Usar bridge_tts para generar audio
+            audio_base64 = bridge_tts.generate_audio_base64(text, language)
+            
+            if audio_base64:
+                logger.info(f"✅ TTS audio generated successfully (length: {len(audio_base64)} chars)")
+                return audio_base64
+            else:
+                logger.warning(f"❌ TTS generation failed - no audio returned")
+                return None
+                
         except Exception as e:
             logger.error(f"Session {self.session_id}: TTS generation error: {e}")
             return None
@@ -439,6 +487,85 @@ class SessionEngine:
         self.translated_lang = ""
         self.current_tts_audio = None
         logger.debug(f"Session {self.session_id}: Completed sentence cleared")
+    
+    def _start_background_timer(self) -> None:
+        """Iniciar timer de background para verificar timeouts independientemente de frames."""
+        if self._timeout_timer is not None:
+            self._timeout_timer.cancel()
+        
+        self._timeout_timer = Timer(self._timer_interval, self._background_timeout_check)
+        self._timeout_timer.daemon = True
+        self._timeout_timer.start()
+    
+    def _background_timeout_check(self) -> None:
+        """Verificación periódica de timeouts en background."""
+        if not self.is_running:
+            return
+            
+        try:
+            current_time = time.time()
+            
+            # Solo verificar timeouts si hay actividad reciente
+            if (hasattr(self, 'last_letter_time') and 
+                current_time - self.last_letter_time > 0.5):  # 500ms después de última letra
+                
+                old_word_finalized = self.word_finalized
+                old_sentence_completed = self.sentence_completed
+                
+                self._check_word_timeout(current_time)
+                self._check_phrase_timeout(current_time)
+                
+                # Si hubo cambios, log para debug
+                if (self.word_finalized != old_word_finalized or 
+                    self.sentence_completed != old_sentence_completed):
+                    logger.debug(f"⏰ Background timer triggered timeout: word_finalized={self.word_finalized}, sentence_completed={self.sentence_completed}")
+                    
+        except Exception as e:
+            logger.error(f"Error in background timeout check: {e}")
+        finally:
+            # Continuar el timer si la sesión sigue activa
+            if self.running:
+                self._start_background_timer()
+    
+    def _start_background_timer(self) -> None:
+        """Iniciar timer de background para verificar timeouts independientemente de frames."""
+        if self._timeout_timer is not None:
+            self._timeout_timer.cancel()
+        
+        self._timeout_timer = Timer(self._timer_interval, self._background_timeout_check)
+        self._timeout_timer.daemon = True
+        self._timeout_timer.start()
+    
+    def _background_timeout_check(self) -> None:
+        """Verificación periódica de timeouts en background."""
+        if not self.is_running:
+            return
+            
+        try:
+            current_time = time.time()
+            
+            # Verificar timeouts si hay actividad de letras detectadas
+            if hasattr(self, 'last_letter_time') and self.last_letter_time > 0:
+                
+                logger.debug(f"⏰ Background timer check: last_letter_time={current_time - self.last_letter_time:.1f}s ago")
+                
+                old_word_finalized = self.word_finalized
+                old_sentence_completed = self.sentence_completed
+                
+                self._check_word_timeout(current_time)
+                self._check_phrase_timeout(current_time)
+                
+                # Si hubo cambios, log para debug
+                if (self.word_finalized != old_word_finalized or 
+                    self.sentence_completed != old_sentence_completed):
+                    logger.info(f"⏰ Background timer triggered timeout: word_finalized={self.word_finalized}, sentence_completed={self.sentence_completed}")
+                    
+        except Exception as e:
+            logger.error(f"Error in background timeout check: {e}")
+        finally:
+            # Continuar el timer si la sesión sigue activa
+            if self.running:
+                self._start_background_timer()
     
     def _build_state_payload(self) -> Dict[str, Any]:
         """Build the current state payload for frontend consumption."""

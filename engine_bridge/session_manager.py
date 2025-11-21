@@ -54,6 +54,14 @@ class SessionManager:
             self.rf_model = joblib.load(rf_model_path)
             logger.info("✅ Random Forest model loaded")
             
+            # Optimización 2: RF warm-up - ejecutar predicción vacía para evitar primera predicción lenta
+            try:
+                import numpy as np
+                self.rf_model.predict(np.zeros((1, 63)))
+                logger.info("🔥 Random Forest warm-up completed")
+            except Exception as e:
+                logger.warning(f"RF warm-up failed (non-critical): {e}")
+            
             if USE_LSTM:
                 try:
                     import tensorflow as tf
